@@ -1,5 +1,15 @@
 # EMOD Within-Host Calibration 2024
 
+A shared virtual environment is available on QUEST (pytorch-1.11-emodpy-py39). Due to some of the installation needs and how this repo was installed, the following is the preferred method to call into the environment when configured in your .bashrc:
+```
+load_calib (){
+    source activate /projects/b1139/environments/emod_torch_tobias
+}
+
+Likewise, we are using a shared custom build (included in /simulations/download/bin_230614_PT) which is based on Malaria-Ongoing current to June 14, 2023. This build includes Annie's work on expanding pyrogenic threshold and including age dependence. Scripts are available in the NU-malaria-PT branch of NU's DtkTrunk here.
+
+As of August 2024, the calibration framework is largely functional with EMOD and its handlers when using the SLURM_LOCAL platform. We are currently running with eight sites (Ndiop, Dielmo, Laye, Dapelago, Matsari, Rafin Marke, Sugungum, and Namawala) across five objectives (incidence, prevalence, asexual parasite density, gametocyte density, and infectiousness). For scoring, site-objectives log-likelihoods are divided by the corresponding log-likelihood for the team default parameter set with InnateImmuneVariationType=NONE. The MAXIMUM site-objective score is the 'score' seen by botorch, and being minimized through the workflow.
+
 Each main-level folder in this repository houses nearly identical calibration machinery (with a fair amount of redundancy, to be removed). There are minor differences for each of the different InnateImmuneVariationType models being tested.
 
 0. NONE
@@ -7,6 +17,8 @@ Each main-level folder in this repository houses nearly identical calibration ma
 2. Pyrogenic Threshold vs. Age Increasing
 3. Pyrogenic Threshold  vs. Age with Inter-Individual Variation
 4. Cytokine Killing
+
+There are 17 parameters under calibration, plus 3 heterogeneity hyperparameters when running Innate Immune Variation Types #3 and #4. These parameters InnateImmuneDistributionFlag, InnateImmuneDistribution1, and InnateImmuneDistribution2 describe the variability of either Pyrogenic Threshold or Fever IRBC Kill Rate, respectively.
 
 Within each there are subfolders with the following structure:
 
