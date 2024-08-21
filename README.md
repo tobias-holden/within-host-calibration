@@ -21,7 +21,33 @@ Each main-level folder in this repository houses nearly identical calibration ma
 
 There are 17 parameters under calibration, plus 3 heterogeneity hyperparameters when running Innate Immune Variation Types #3 and #4. These parameters InnateImmuneDistributionFlag, InnateImmuneDistribution1, and InnateImmuneDistribution2 describe the variability of either Pyrogenic Threshold or Fever IRBC Kill Rate, respectively.
 
-Within each there are subfolders with the following structure:
+| id | parameter_label                            | parameter_name                                   | min      | max      | transform | team_default |
+|----|--------------------------------------------|--------------------------------------------------|----------|----------|-----------|--------------|
+|  1 | Antigen Switch Rate                        | `Antigen_Switch_Rate`                            | 1E-11    | 0.001    | log       | 7.65E-10     |
+|  2 | Gametocyte Sex Ratio                       | `Base_Gametocyte_Fraction_Male`                  | 0.05     | 0.95     | none      | 0.2          |
+|  3 | Gametocyte Mosquito Survival Rate          | `Base_Gametocyte_Mosquito_Survival_Rate`         | 0.0001   | 1        | log       | 0.00088      |
+|  4 | Gametocyte Production Rate                 | `Base_Gametocyte_Production_Rate`                | 0.01     | 1        | log       | 0.0615       |
+|  5 | Falciparum MSP Variants                    | `Falciparum_MSP_Variants`                        | 1        | 1000     | log       | 32           |
+|  6 | Falciparum Nonspecific Types               | `Falciparum_Nonspecific_Types`                   | 1        | 1000     | none      | 76           |
+|  7 | Falciparum PfEMP1 Variants                 | `Falciparum_PfEMP1_Variants`                     | 1        | 20000    | log       | 1070         |
+|  8 | Max Fever Kill Rate of iRBCs               | `Fever_IRBC_Kill_Rate`                           | 0.1      | 1000     | log       | 1.4          |
+|  9 | Gametocyte Stage Survival Rate             | `Gametocyte_Stage_Survival_Rate`                 | 0.01     | 1        | none      | 0.5886       |
+| 10 | MSP Merozoite Kill Fraction                | `MSP1_Merozoite_Kill_Fraction`                   | 0.01     | 1        | none      | 0.511735322  |
+| 11 | Nonspecific Antibody Growth Rate Factor    | `Nonspecific_Antibody_Growth_Rate_Factor`        | 0.01     | 1000     | log       | 0.5          |
+| 12 | Nonspecific Antigenicity Factor            | `Nonspecific_Antigenicity_Factor`             | 0.000000001 | 1        | none      | 0.4151       |
+| 13 | Pyrogenic Threshold                        | `Pyrogenic_Threshold`                            | 500      | 500000   | log       | 15000        |
+| 14 | Max Individual Infections                  | `Max_Individual_Infections`                      | 3        | 10       | none      |              |
+| 15 | Erythropoeisis Anemia Effect               | `Erythropoiesis_Anemia_Effect`                   | 0.5      | 5        | none      | 3.5          |
+| 16 | RBC Destruction Multiplier                 | `RBC_Destruction_Multiplier`                     | 0.5      | 5        | none      | 3.29         |
+| 17 | Cytokine Gametocyte Inactivation           | `Cytokine_Gametocyte_Inactivation`               | 0.001    | 1        | log       | 0.02         |
+| 18 | InnateImmuneDistributionFlag               | `InnateImmuneDistributionFlag`                   | 0        | 4.9      | none      | 0            |
+| 19 | InnateImmuneDistribution1                  | `InnateImmuneDistribution1`                      | 0        | 1        | none      | 0            |
+| 20 | InnateImmuneDistribution2                  | `InnateImmuneDistribution2`                      | 0        | 1        | none      | 1            |
+
+
+
+
+Within each IIVT 'branch' are subfolders with the following structure:
 
 ## bo.py
 
