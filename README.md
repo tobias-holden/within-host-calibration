@@ -18,6 +18,7 @@ Each main-level folder in this repository houses nearly identical calibration ma
 2. Pyrogenic Threshold vs. Age Increasing
 3. Pyrogenic Threshold  vs. Age with Inter-Individual Variation
 4. Cytokine Killing
+5. *Pyrogenic Threshold (to add)*
 
 There are 17 parameters under calibration, plus 3 heterogeneity hyperparameters when running Innate Immune Variation Types #3 and #4. These parameters InnateImmuneDistributionFlag, InnateImmuneDistribution1, and InnateImmuneDistribution2 describe the variability of either Pyrogenic Threshold or Fever IRBC Kill Rate, respectively.
 
@@ -45,15 +46,30 @@ There are 17 parameters under calibration, plus 3 heterogeneity hyperparameters 
 | 20 | InnateImmuneDistribution2                  | `InnateImmuneDistribution2`                      | 0        | 1        | none      | 1            |
 
 
+## Current workflow
 
+Initialization: 1,000 parameter sets  
+Stopping Condition: 5,000 parameter sets  
+Simulator Batch Size: 100 parameter sets  
+Emulator Batch Size: 5,000 candidates  
+Failure Limit: 5 simulation batches  
+
+Memory requested per sim: 2.5GB  
+Time limit per sim: 12 hours  
+Memory requested per analyzer (batch size = 100): 25GB  
+Time limit per analyzer (batch size = 100): 2 hours
+
+Running IIVT 0-4 simultaneously, 8 sites each, with 10 concurrent simulations per site-IIVT combination.
+
+## Directory Structure
 
 Within each IIVT 'branch' are subfolders with the following structure:
 
-## bo.py
+### bo.py
 
 Includes functions that control the entire calibration workflow, such as reading checkpoints, creating initial parameter sets, and what should be performed during each step/iteration of the workflow. Typically these can be left as is but note that this is where you may need to add changes for modifying the inner machinery of calibration.
 
-## batch_generators
+### batch_generators
 
 Includes basic batch generators using the various acquisition functions. Expected_improvement.py and turbo_thompson_sampling.py should be functional for QUEST. Others may require some small improvements related to botorch functionalities.
 
@@ -67,11 +83,11 @@ Includes basic batch generators using the various acquisition functions. Expecte
 * turbo_upper_confidence_bound
 * upper_confidence_bound
 
-## create_plots
+### create_plots
 
 A mixed bag of helper scripts for coordinating relationships, reference sites, likelihood calculators, etc. Also includes some archival scripts from model validation workflow for plotting and generating the comparisons. This folder likely needs some cleanup and may not currently be used in the workflow.
 
-## emulators
+### emulators
 
 GP.py defining the basic setup for the GP Emulation. This script contains additional possible emulators; however, we have only used ExactGP and explored ExactMultiTaskGP so far.
 
@@ -81,15 +97,15 @@ GP.py defining the basic setup for the GP Emulation. This script contains additi
 * Exact Multitask GP
 * Approximate GPs...
 
-## process_reference_data
+### process_reference_data
 
 Includes some basic reformatting R scripts that are no longer currently in use for this workflow.
 
-## reference_datasets
+### reference_datasets
 
 Home for .csv and .xlsx files containing the reference data points. 
 
-## simulation_inputs
+### simulation_inputs
 
 Files describing options for...
 
@@ -107,11 +123,11 @@ Helper files *create_sweep_coordinator_csv.py* and *setup_survey_days_input.py*
 
 Plus the ***simulation_coordinator.csv*** for tuning site-specific options
 
-## simulation_outputs
+### simulation_outputs
 
 All analyzer outputs will be saved here by site, and cleared after each 'batch' of simulations. Outputs are currently copied to the folder simulations/output/<experiment>/LF_<batch_number>/SO/
 
-## simulations
+### simulations
 
 Some helper files:
 
@@ -134,7 +150,7 @@ Some helper files:
 * utils_slurm.py - slurm-specific helper functions for chain job submission on QUEST
 * wait_for_experiment.py - helper to submit small job monitoring for simulation end before requesting resources for expensive analyzers.
 
-### analyzers
+#### analyzers
 
 * **AnnualSummaryReportAnalyzer**
 * EventRecorderSummaryAnalyzer
@@ -147,7 +163,7 @@ Some helper files:
 * PatientReportAnalyzer
 * PatientReportAnalyzer_laterDays
 
-### compare_to_data
+#### compare_to_data
 
 * **age_annual_prevalence_comparison.py**
 * age_gametocyte_prevalence_comparison.py
@@ -158,7 +174,7 @@ Some helper files:
 * **parasite_density_comparison.py**
 * **run_full_comparison.py**
 
-### download
+#### download
 
 * Eradication.exe
 * schema.json
@@ -166,6 +182,6 @@ Some helper files:
     * **Eradication.exe**
     * **schema.json**
 
-### log
+#### log
 
-### output
+#### output
