@@ -1,4 +1,5 @@
 import os, sys, shutil
+import json
 import warnings
 sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
 import pandas as pd
@@ -95,6 +96,9 @@ def set_param_fn(config):
     # update outputs
     config.parameters.Enable_Default_Reporting = 0
     #config.parameters[ "logLevel_default" ] = "WARNING"
+    
+    # biting heterogeneity
+    config.parameters.Enable_Demographics_Risk = 1
 
     return config
 
@@ -124,13 +128,16 @@ def set_simulation_scenario(simulation, site, csv_path):
     # add demographics and set whether there are births and deaths
     demographics_filename = str(coord_df.at[site, 'demographics_filepath'])
     if demographics_filename and demographics_filename != 'nan':
-        simulation.task.transient_assets.add_asset(manifest.input_files_path / demographics_filename)
+        #demo_path = (manifest.input_files_path / demographics_filename)
+        #simulation.task.transient_assets.add_asset(manifest.input_files_path / demographics_filename)
         simulation.task.config.parameters.Demographics_Filenames = [demographics_filename.rsplit('/',1)[-1]]
+        #simulation.task.config.parameters.Demographics_Filenames = ["my_demographics.json"]
     simulation.task.config.parameters.Enable_Vital_Dynamics = coord_df.at[site, 'enable_vital_dynamics'].tolist()
     if coord_df.at[site, 'enable_vital_dynamics'] == 1:
         simulation.task.config.parameters.Age_Initialization_Distribution_Type = 'DISTRIBUTION_COMPLEX'
         simulation.task.config.parameters.Enable_Natural_Mortality = 1
         simulation.task.config.parameters.Death_Rate_Dependence = 'NONDISEASE_MORTALITY_BY_AGE_AND_GENDER'
+        simulation.task.config.parameters.Enable_Demographics_Birth = 1
     else:
         simulation.task.config.parameters.Age_Initialization_Distribution_Type = 'DISTRIBUTION_SIMPLE'
     # maternal antibodies - use first 12 months of data frame to get annual EIR from monthly eir
