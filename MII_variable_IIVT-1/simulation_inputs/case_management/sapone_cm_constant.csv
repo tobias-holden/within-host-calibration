@@ -1,0 +1,5 @@
+node_id,phase,start_day,duration,trigger,age_min,age_max,coverage,seek,rate,drug,year
+1,pickup,1,-1,NewClinicalCase,0,5,0.848312577,1,0.3,AL,2020
+1,pickup,1,-1,NewClinicalCase,5,15,0.508987546,1,0.3,AL,2020
+1,pickup,1,-1,NewClinicalCase,15,115,0.339325031,1,0.3,AL,2020
+1,pickup,1,-1,NewSevereCase,0,115,0.848312577,1,0.2,AL,2020
