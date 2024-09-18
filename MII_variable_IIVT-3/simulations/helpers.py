@@ -95,7 +95,10 @@ def set_param_fn(config):
     
     # update outputs
     config.parameters.Enable_Default_Reporting = 0
-    #config.parameters[ "logLevel_default" ] = "WARNING"
+    #config.parameters[ "logLevel_default" ] = "WARNING"\
+    
+    #  biting risk
+    config.parameters.Enable_Demographics_Risk = 1
 
     return config
 
@@ -134,6 +137,7 @@ def set_simulation_scenario(simulation, site, csv_path):
         simulation.task.config.parameters.Age_Initialization_Distribution_Type = 'DISTRIBUTION_COMPLEX'
         simulation.task.config.parameters.Enable_Natural_Mortality = 1
         simulation.task.config.parameters.Death_Rate_Dependence = 'NONDISEASE_MORTALITY_BY_AGE_AND_GENDER'
+        simulation.task.config.parameters.Enable_Demographics_Birth = 1
     else:
         simulation.task.config.parameters.Age_Initialization_Distribution_Type = 'DISTRIBUTION_SIMPLE'
     # maternal antibodies - use first 12 months of data frame to get annual EIR from monthly eir
