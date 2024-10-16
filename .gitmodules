@@ -1,0 +1,3 @@
+[submodule "calibration_common"]
+	path = calibration_common
+	url = https://github.com/tobias-holden/calibration_common.git
