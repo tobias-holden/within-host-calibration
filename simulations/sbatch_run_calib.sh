@@ -10,9 +10,17 @@
 #SBATCH --error=log/calib_IIVT-PT_VS_AGE_INC.%j.err
 #SBATCH --output=log/calib_IIVT-PT_VS_AGE_INC.%j.out
 
-
+# Purge modules
 module purge all
+
+# Activate virtual environment
 source activate /projects/b1139/environments/emod_torch_tobias
 
-cd /projects/b1139/calibration_scenarios/MII_variable_IIVT\-2/simulations
+
+# Navigate to project directory
+parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+cd "$parent_path"
+cd simulations
+
+# Run calibration
 python run_calib.py
