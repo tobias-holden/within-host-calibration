@@ -29,25 +29,26 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "hyperparam_240804"
+exp_label = "241013_20_max_infections"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
 
 # BO specifications
-init_samples = 1000
-init_batches = 10
+init_samples =999
+init_batches = 5
 
-emulator_batch_size = 100
+emulator_batch_size = 200
 failure_limit=5
 gp_max_eval = 5000
 
+param_key=pd.read_csv("test_parameter_key.csv")
 
 # Define the Problem, it must be a functor
 class Problem:
     def __init__(self,workdir="checkpoints/emod"):
-        self.dim = 17 # mandatory dimension
+        self.dim = int(param_key.shape[0])  #17 # mandatory dimension
         self.ymax = None #max value
         self.best = None
         self.n = 0
@@ -97,28 +98,28 @@ class Problem:
         
         if self.n == 0:
             Y0['round'] = [self.n] * len(Y0)
-            Y0.to_csv(f"{self.workdir}/all_LL.csv")
+            Y0.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         else:
             Y0['round'] = [self.n] * len(Y0)
             score_df=pd.read_csv(f"{self.workdir}/all_LL.csv")
             score_df=pd.concat([score_df,Y0])
-            score_df.to_csv(f"{self.workdir}/all_LL.csv")
+            score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
         Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
         
         Y = Y1.groupby("param_set").agg({"ll": lambda x: x.sum(skipna=False)}).reset_index().sort_values(by=['ll'])
-        Ym = Y1.groupby("param_set").agg({"ll": lambda x: x.min(skipna=False)}).reset_index().sort_values(by=['ll'])
+        #Ym = Y1.groupby("param_set").agg({"ll": lambda x: x.min(skipna=False)}).reset_index().sort_values(by=['ll'])
         params=Y['param_set']
         Y = Y['ll']
-        Ym=Ym['ll']
+        #Ym=Ym['ll']
         if self.n==0:
             # Mask score for team default X_prior
             Y[0]= float("nan")
-            Ym[0]= float("nan")
+         #   Ym[0]= float("nan")
             
         xc = []
         yc = []
-        ym = []
+        #ym = []
         ysc = []
         pc = []
         
@@ -128,7 +129,7 @@ class Problem:
             else:
                 xc.append(X[j].tolist())
                 yc.append([Y[j]])
-                ym.append([Ym[j]])
+                #ym.append([Ym[j]])
                 sub=Y1[Y1['param_set']==params[j]]
                 ysc.append(sub['ll'].to_list())
                 pc.append(params[j])
@@ -136,49 +137,49 @@ class Problem:
         xc2=[tuple(i) for i in xc]
         links=dict(zip(xc2,yc)) 
         pset=dict(zip(pc,yc))
-        links_m=dict(zip(xc2,ym))
-        pset_m=dict(zip(pc,ym))
+        #links_m=dict(zip(xc2,ym))
+        #pset_m=dict(zip(pc,ym))
         
         X_out = torch.tensor(xc,dtype=torch.float64)
-        print("X_out")
-        print(X_out)
+        #print("X_out")
+        #print(X_out)
         
         Y_out = torch.tensor(yc)
-        Y_m_out = torch.tensor(ym)
+        #Y_m_out = torch.tensor(ym)
         #Y_out = torch.stack([torch.tensor(y) for y in ysc],-1)
-        print("Y_out")
-        print(Y_out)
-        print(Y_out.shape)
-        print("Y_m_out")
-        print(Y_m_out)
-        print(Y_m_out.shape)
+        #print("Y_out")
+        #print(Y_out)
+        #print(Y_out.shape)
+        #print("Y_m_out")
+        #print(Y_m_out)
+        #print(Y_m_out.shape)
 
         # If new best value is found, save it and some other data
         if self.ymax is None or self.n == 0:
-            self.ymax = max(links_m.values())
+            self.ymax = max(links.values())
             
-            best_p = max(pset_m,key=pset_m.get)
-            best_x = max(links_m,key=links_m.get)
+            best_p = max(pset,key=pset.get)
+            best_x = max(links,key=links.get)
             self.best = translate_parameters(param_key,best_x,ps_id=best_p)
             
             np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
             np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
-            self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv")
+            self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv",index=False)
             plot_all_comparisons(param_sets_to_plot=[1],plt_dir=self.workdir)
-            plot_all_comparisons(param_sets_to_plot=[max(pset_m,key=pset_m.get),1],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+            plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get),1],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO",dirs_exist_ok = True)            
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-            
+           
         else: 
-            if max(links_m.values())[0] > self.ymax:
-                self.ymax = max(links_m.values()) #weighted_lf  
-                best_p = max(pset_m,key=pset_m.get)
-                best_x = max(links_m,key=links_m.get)
+            if max(links.values())[0] > self.ymax:
+                self.ymax = max(links.values()) #weighted_lf  
+                best_p = max(pset,key=pset.get)
+                best_x = max(links,key=links.get)
                 self.best = translate_parameters(param_key,best_x,best_p)
-                self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv")
+                self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv",index=False)
 
-            plot_all_comparisons(param_sets_to_plot=[max(pset_m,key=pset_m.get)],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+                plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get)],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
               
             np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
             np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
@@ -186,7 +187,9 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
         
-        return X_out, Y_m_out
+	clean_analyzers()
+
+        return X_out, Y_out
 
 
 problem = Problem(workdir=f"output/{exp_label}")
@@ -218,20 +221,6 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 #bo.initRandom(2)
 
 # Usual random init sample, with team default Xprior
-# team_default_params = [0.235457679394,  # Antigen switch rate (7.65E-10) 
-#                        0.166666666667,  # Gametocyte sex ratio (0.2) 
-#                        0.100343331888,  # Base gametocyte mosquito survival rate (0.002)
-#                        0.394437557888,  # Base gametocyte production rate (0.0615)
-#                        0.50171665944,   # Falciparum MSP variants (32)
-#                        0.0750750750751, # Falciparum nonspecific types (76)
-#                        0.704339142192,  # Falciparum PfEMP1 variants (1070)
-#                        0.28653200892,   # Fever IRBC kill rate (1.4)
-#                        0.584444444444,  # Gametocyte stage survival rate (0.5886)
-#                        0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-#                        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-#                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-#                        0.492373751573,  # Pyrogenic threshold (15000)
-#                        0]               # Max Individual Infections (3)
                        
 team_default_params2 = [0.235457679394, # Antigen switch rate (7.65E-10) 
                        0.166666666667,  # Gametocyte sex ratio (0.2) 
@@ -246,7 +235,7 @@ team_default_params2 = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
                        0.492373751573,  # Pyrogenic threshold (15000)
-                       0,               # Max Individual Infections (3)
+                       -1.0,            # Max Individual Infections (3)
                        0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
                        0.755555555555,  # RBC Destruction Multiplier (3.9)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
