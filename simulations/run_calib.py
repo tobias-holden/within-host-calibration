@@ -9,13 +9,13 @@ from botorch.utils.transforms import unnormalize
 from gpytorch.constraints import Interval, GreaterThan, LessThan
 
 sys.path.append("../")
-from batch_generators.expected_improvement import ExpectedImprovement
-from batch_generators.turbo_thompson_sampling import TurboThompsonSampling
-from batch_generators.batch_generator_array import BatchGeneratorArray
+from calibration_common.batch_generators.expected_improvement import ExpectedImprovement
+from calibration_common.batch_generators.turbo_thompson_sampling import TurboThompsonSampling
+from calibration_common.batch_generators.batch_generator_array import BatchGeneratorArray
 
-from emulators.GP import ExactGP, ExactMultiTaskGP
-from bo import BO
-from plot import *
+from calibration_common.emulators.GP import ExactGP, ExactMultiTaskGP
+from calibration_common.bo import BO
+from calibration_common.plot import *
 
 from my_func import my_func as myFunc
 from compare_to_data.run_full_comparison import plot_all_comparisons
