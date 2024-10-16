@@ -1,0 +1,11 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+#log files
+*.err
+*.out
+
+# Batch submission scripts
+
+wait_*.sh
+run_*.sh
