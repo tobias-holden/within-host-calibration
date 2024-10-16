@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-scenario = 'MII_variable_IIVT-0'
 experiment = 'hyperparam_240804'
 
 plot_predictions = True
@@ -12,27 +11,27 @@ exclude_count = 4000
 plot_length_scales = True
 plot_timers = True
 
-print(" ".join(("Loading botorch objects for scenario",scenario,"experiment",experiment)))
+print(" ".join(("Loading botorch objects for experiment",experiment)))
 
 #print("iterations")
-#iterations = torch.load(os.path.join(scenario,'simulations','output',experiment,'iterations.pt'))
+#iterations = torch.load(os.path.join('simulations','output',experiment,'iterations.pt'))
 #print(iterations.shape)
 
 #print("X")
-#X = torch.load(os.path.join(scenario,'simulations','output',experiment,'X.pt'))
+#X = torch.load(os.path.join('simulations','output',experiment,'X.pt'))
 #print(X.shape)
 
 if plot_predictions:
     print("Y")
-    Y = torch.load(os.path.join(scenario,'simulations','output',experiment,'Y.pt'))
+    Y = torch.load(os.path.join('simulations','output',experiment,'Y.pt'))
     print(Y.shape)
 
     print("Y_pred_mean")
-    Y_pred_mean = torch.load(os.path.join(scenario,'simulations','output',experiment,'Y_pred_mean.pt'))
+    Y_pred_mean = torch.load(os.path.join('simulations','output',experiment,'Y_pred_mean.pt'))
     print(Y_pred_mean.shape)
 
     print("Y_pred_var")
-    Y_pred_var = torch.load(os.path.join(scenario,'simulations','output',experiment,'Y_pred_var.pt'))
+    Y_pred_var = torch.load(os.path.join('simulations','output',experiment,'Y_pred_var.pt'))
     print(Y_pred_var.shape)
 
     # Convert tensors to NumPy arrays
@@ -74,8 +73,8 @@ if plot_predictions:
 
         # Show the plot
         plt.show()
-        plt.savefig('_'.join((scenario,experiment,'predictions.png')), dpi=300)  # Save as PNG with high resolution
-        plt.savefig('_'.join((scenario,experiment,'predictions.pdf')))  
+        plt.savefig('_'.join((experiment,'predictions.png')), dpi=300)  # Save as PNG with high resolution
+        plt.savefig('_'.join((experiment,'predictions.pdf')))  
 
     else:
         print("The tensor length is less than or equal to the number of values to exclude.")
@@ -83,12 +82,12 @@ if plot_predictions:
 
 if plot_length_scales:
     print("length_scales")
-    length_scales = torch.load(os.path.join(scenario,'simulations','output',experiment,'length_scales.pt'))
+    length_scales = torch.load(os.path.join('simulations','output',experiment,'length_scales.pt'))
     print(length_scales.shape)
     length_scales = torch.transpose(length_scales,0,1)
     nparam=list(length_scales.shape)[0]
     rounds=list(length_scales.shape)[1]
-    parameter_names = pd.read_csv(os.path.join(scenario,'simulations','test_parameter_key.csv'))
+    parameter_names = pd.read_csv(os.path.join('simulations','test_parameter_key.csv'))
     parameter_names = parameter_names['parameter_label'].tolist()
     #print(parameter_names)
     # plotting
@@ -112,18 +111,18 @@ if plot_length_scales:
     plt.tight_layout()
     plt.show()
     # Save the plot as PNG and PDF
-    fig.savefig('_'.join((scenario,experiment,'lengthscales.png')), dpi=300)  # Save as PNG with high resolution
-    fig.savefig('_'.join((scenario,experiment,'lengthscales.pdf')))  
+    fig.savefig('_'.join((experiment,'lengthscales.png')), dpi=300)  # Save as PNG with high resolution
+    fig.savefig('_'.join((experiment,'lengthscales.pdf')))  
 
 
 #### TIMING 
 if plot_timers:
     print("timer_model")
-    timer_model = torch.load(os.path.join(scenario,'simulations','output',experiment,'timer_model.pt'))
+    timer_model = torch.load(os.path.join('simulations','output',experiment,'timer_model.pt'))
     print(timer_model.shape)
 
     print("timer_batch_generator")
-    timer_batch_generator = torch.load(os.path.join(scenario,'simulations','output',experiment,'timer_batch_generator.pt'))
+    timer_batch_generator = torch.load(os.path.join('simulations','output',experiment,'timer_batch_generator.pt'))
     print(timer_batch_generator.shape)
 
     timer_model = timer_model.numpy().flatten()
@@ -144,6 +143,6 @@ if plot_timers:
 
     # Show the plot
     plt.show()
-    plt.savefig('_'.join((scenario,experiment,'timing.png')), dpi=300)  # Save as PNG with high resolution
-    plt.savefig('_'.join((scenario,experiment,'timing.pdf')))  
+    plt.savefig('_'.join((experiment,'timing.png')), dpi=300)  # Save as PNG with high resolution
+    plt.savefig('_'.join((experiment,'timing.pdf')))  
 
