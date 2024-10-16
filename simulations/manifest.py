@@ -7,7 +7,7 @@ import os
 """
 This section contains the most important parameters that you may want to change before running the snakemake workflow.
 use_local_eradication: set to 0 to run workflow using the Eradication and schema currently under download_folder.
-                       set to 1 to get Eradicaiton and schema from emod_malaria and unzip them to download_folder.
+                       set to 1 to get Eradication and schema from emod_malaria and unzip them to download_folder.
 singularity_id: the AC id for singularity image that the simulation will be run with.
                 Set it to None if you don't want to run with any singularity image.
 """
@@ -64,5 +64,5 @@ node_group = 'idm_abcd'
 # This is the path to the sisf image used to run EMOD
 SIF_PATH = "--bind /projects /projects/b1139/images/dtk_run_rocky_py39.sif"
 
-job_directory = os.path.join('/projects/b1139/calibration_testing/experiments')
+job_directory = PROJECT_DIR / "experiments" 
 os.makedirs(job_directory, exist_ok=True)
