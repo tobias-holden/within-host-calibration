@@ -36,15 +36,17 @@ output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
 
-# BO specifications
-init_samples =999
-init_batches = 5
+calib_coord = pd.read_csv(os.path.join(manifest.input_files_path,"calibration_coordinator.csv"),header=None)
 
-emulator_batch_size = 200
-failure_limit=5
-gp_max_eval = 5000
+# Botorch details
+calib_coord.set_index(0, inplace=True)
+init_size=int(calib_coord.at["init_size",1])
+init_batches =  int(calib_coord.at["init_batches",1]) 
+batch_size = int(calib_coord.at["batch_size",1])
+max_eval = int(calib_coord.at["max_eval",1])
+failure_limit = int(calib_coord.at["failure_limit",1])
 
-param_key=pd.read_csv("test_parameter_key.csv")
+param_key=pd.read_csv("parameter_key.csv")
 
 # Define the Problem, it must be a functor
 class Problem:
@@ -195,11 +197,11 @@ clean_analyzers()
 model = ExactGP(noise_constraint=GreaterThan(1e-6))
 
 # Create batch generator(s)
-tts = TurboThompsonSampling(batch_size=emulator_batch_size, failure_tolerance=failure_limit, dim=problem.dim)
+tts = TurboThompsonSampling(batch_size=batch_size, failure_tolerance=failure_limit, dim=problem.dim)
 batch_generator = tts 
 
 # Create the workflow
-bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpointdir=output_dir, max_evaluations=gp_max_eval)
+bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpointdir=output_dir, max_evaluations=max_eval)
 
 # Sample and evaluate sets of parameters randomly drawn from the unit cube
 #bo.initRandom(2)
@@ -225,7 +227,7 @@ team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
 
 
-bo.initRandom(init_samples,
+bo.initRandom(init_size,
               n_batches = init_batches,
               Xpriors = [team_default_params])
 
