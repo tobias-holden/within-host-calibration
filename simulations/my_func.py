@@ -24,7 +24,7 @@ sites = load_sites()
 def my_func(X,wdir,JS=False):
   # Supply parameters to X
   get_eradication(manifest.use_local_eradication)
-  param_key=pd.read_csv("test_parameter_key.csv")
+  param_key=pd.read_csv("parameter_key.csv")
   df = pd.DataFrame({'parameter':[], 'unit_value': [], 'emod_value':[], 'type':[], 'param_set':[]})
   i=1
   print("translating parameters...", flush=True)
@@ -67,7 +67,7 @@ def my_func(X,wdir,JS=False):
 def my_func2(X,wdir):
   # Supply parameters to X
   get_eradication(manifest.use_local_eradication)
-  param_key=pd.read_csv("test_parameter_key.csv")
+  param_key=pd.read_csv("parameter_key.csv")
   df = pd.DataFrame({'parameter':[], 'unit_value': [], 'emod_value':[], 'type':[], 'param_set':[]})
   i=1
   for x in X:
@@ -113,7 +113,7 @@ def my_func2(X,wdir):
 
 
 if __name__ == '__main__':
-    param_key=pd.read_csv("test_parameter_key.csv")
+    param_key=pd.read_csv("parameter_key.csv")
     X = get_initial_samples(param_key, 100)
     X = X[1:5]
     my_func(X)

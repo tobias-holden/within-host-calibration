@@ -78,7 +78,7 @@ class Problem:
         # Finally, we need to return each y as a one-dimensional tensor (since we have just one dimension)
         # 
         # rewrite myfunc as class so we can keep track of things like the max value - aurelien does plotting each time but only saves when the new max > old max - would also allow for easier saving of outputs if desired. would also potentially help with adding iterations to param_set number so we don't reset each time. not sure yet if better to leave existing myfunc or pull everything into this
-        param_key=pd.read_csv("test_parameter_key.csv")
+        param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
         Y0 = myFunc(X,wdir,JS=False) 
