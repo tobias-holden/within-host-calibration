@@ -15,17 +15,18 @@ from calibration_common.batch_generators.batch_generator_array import BatchGener
 
 from calibration_common.emulators.GP import ExactGP, ExactMultiTaskGP
 from calibration_common.bo import BO
-from calibration_common.plot import *
 
 from my_func import my_func as myFunc
 from compare_to_data.run_full_comparison import plot_all_comparisons
 from compare_to_data.run_full_comparison import compute_LL_across_all_sites_and_metrics
-from clean_all import clean_analyzers
+from clean_all import clean_analyzers, clean_logs
 from translate_parameters import translate_parameters
 
 import manifest as manifest
 import torch
 from torch import tensor
+
+from post_calibration_analysis import post_calibration_analysis
 
 torch.set_default_dtype(torch.float64)
 
@@ -79,20 +80,6 @@ class Problem:
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
         Y0 = myFunc(X,wdir,JS=False) 
-        # if self.n==0:
-        #      #Y0=compute_LL_across_all_sites_and_metrics(numOf_param_sets=100)
-        #      Y0=pd.read_csv(f"{self.workdir}/all_LL.csv")
-        #      X=pd.read_csv(f"{self.workdir}/LF_{self.n}/translated_params.csv")
-        #      ps = max(X['param_set'])
-        #      X=X['unit_value']
-        #      X = ["torch."+x for x in X]
-        #      X = [eval(x) for x in X]
-        #      X=[x.numpy().tolist() for x in X]
-        # 
-        #      X = np.array_split(X, ps)
-        # 
-        # else:
-        #     Y0=myFunc(X,wdir,JS=False)
         
         Y1 = Y0
         
@@ -170,7 +157,8 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO",dirs_exist_ok = True)            
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-           
+            clean_analyzers()
+            clean_logs()
         else: 
             if max(links.values())[0] > self.ymax:
                 self.ymax = max(links.values()) #weighted_lf  
@@ -186,9 +174,8 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO",dirs_exist_ok = True)
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-        
-	clean_analyzers()
-
+            clean_analyzers()
+            clean_logs()
         return X_out, Y_out
 
 
@@ -205,14 +192,11 @@ clean_analyzers()
 # Create the GP model
 # See emulators/GP.py for a list of GP models
 # Or add your own, see: https://botorch.org/docs/models
-
-#model = ExactGP(noise_constraint=GreaterThan(1e-6))
 model = ExactGP(noise_constraint=GreaterThan(1e-6))
 
 # Create batch generator(s)
-#batch_size 64 when running in production
-tts = TurboThompsonSampling(batch_size=emulator_batch_size, failure_tolerance=failure_limit, dim=problem.dim) #64
-batch_generator = tts #BatchGeneratorArray([tts, ei])
+tts = TurboThompsonSampling(batch_size=emulator_batch_size, failure_tolerance=failure_limit, dim=problem.dim)
+batch_generator = tts 
 
 # Create the workflow
 bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpointdir=output_dir, max_evaluations=gp_max_eval)
@@ -222,7 +206,7 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 
 # Usual random init sample, with team default Xprior
                        
-team_default_params2 = [0.235457679394, # Antigen switch rate (7.65E-10) 
+team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
                        0.166666666667,  # Gametocyte sex ratio (0.2) 
                        0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
                        0.394437557888,  # Base gametocyte production rate (0.0615)
@@ -243,27 +227,17 @@ team_default_params2 = [0.235457679394, # Antigen switch rate (7.65E-10)
 
 bo.initRandom(init_samples,
               n_batches = init_batches,
-              Xpriors = [team_default_params2])
+              Xpriors = [team_default_params])
 
 # Run the optimization loop
 bo.run()
 
+##### Post-calibration steps
 
-# x=pd.read_csv("test_parameter_key.csv")
-# parameter_labels=x['parameter_label'].to_list()
-# print("Here")
-# # Plot
-plot_runtimes(bo)
-plt.savefig(f'{output_dir}/runtime', bbox_inches="tight")
-plot_MSE(bo,n_init=1)
-plt.savefig(f'{output_dir}/mse', bbox_inches="tight")
-# plot_convergence(bo, negate=True)
-# plt.savefig(f'{output_dir}/convergence', bbox_inches="tight")
-plot_prediction_error(bo)
-plt.savefig(f'{output_dir}/pred_error', bbox_inches="tight")
-# plot_X_flat(bo, param_key = x, labels=parameter_labels)
-# plt.savefig(f'{output_dir}/x_flat', bbox_inches="tight")
-# #plot_space(bo, -5**2, 0, labels="X")
-# #plt.savefig(f'{output_dir}/space', bbox_inches="tight")
-# plot_y_vs_posterior_mean(bo,n_init=1)
-# plt.savefig(f'{output_dir}/posterior_mean', bbox_inches="tight")
+# Run analysis
+
+post_calibration_analysis(experiment=exp_label,
+                          length_scales_by_objective=True,      # Fit single-task GP per site-metric
+                          length_scales_plot=True,              # Plot length-scales from calibration
+                          prediction_plot=True,exclude_count=0, # Plot predictions, starting @ exclude_count
+                          timer_plot=True)                      # Plot emulator and acquisition timing
