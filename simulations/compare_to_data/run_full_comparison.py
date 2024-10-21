@@ -52,15 +52,19 @@ def compute_LL_across_all_sites_and_metrics(numOf_param_sets = 64):
     combined_df = pd.concat(combined)
 
     weighting_rules = pd.read_csv(os.path.join(manifest.base_reference_filepath,'weights.csv'))
+
     b=pd.merge(combined_df, weighting_rules,  how='left', left_on=['site','metric'], right_on = ['site','metric'])
+
     b['my_weight'].fillna(1.0, inplace=True)
     b['baseline'].fillna(-1.0, inplace=True)
 
     return b
 
 def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
+
     coord_df = load_coordinator_df(characteristic=False, set_index=True)
     coord_df = coord_df[coord_df['include_site']]
+
     if len(coord_df[coord_df['infectiousness_to_mosquitos'] == True]) > 0:
         plot_infectiousness_comparison_all_sites(param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir) 
     if len(coord_df[coord_df['age_parasite_density'] == True]) > 0:
@@ -76,4 +80,6 @@ def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.s
 
 if __name__ == "__main__":
     
+
     print(compute_LL_across_all_sites_and_metrics(3))
+
