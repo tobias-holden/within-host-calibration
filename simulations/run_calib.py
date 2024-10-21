@@ -81,7 +81,7 @@ class Problem:
         param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
-        Y0 = myFunc(X,wdir,JS=False) 
+        Y0 = myFunc(X,wdir) 
         
         Y1 = Y0
         
@@ -226,10 +226,27 @@ team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.755555555555,  # RBC Destruction Multiplier (3.9)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
 
+params_241013 = [0.063819259,
+                0.311834632,
+                0.265195263,
+                0.709026171,
+                0.159035939,
+                0.176874946,
+                0.733520807,
+                0.976217168,
+                0.833900254,
+                0.449908713,
+                0.694589051,
+                0.129187744,
+                0.294669431,
+                0.483482927, # Max Individual Infections (20)
+                0.410575954,
+                0.391240481,
+                0.199995755]
 
 bo.initRandom(init_size,
               n_batches = init_batches,
-              Xpriors = [team_default_params])
+              Xpriors = [team_default_params,params_241013])
 
 # Run the optimization loop
 bo.run()
@@ -238,8 +255,8 @@ bo.run()
 
 # Run analysis
 
-post_calibration_analysis(experiment=exp_label,
-                          length_scales_by_objective=True,      # Fit single-task GP per site-metric
-                          length_scales_plot=True,              # Plot length-scales from calibration
-                          prediction_plot=True,exclude_count=0, # Plot predictions, starting @ exclude_count
-                          timer_plot=True)                      # Plot emulator and acquisition timing
+# post_calibration_analysis(experiment=exp_label,
+#                           length_scales_by_objective=True,      # Fit single-task GP per site-metric
+#                           length_scales_plot=True,              # Plot length-scales from calibration
+#                           prediction_plot=True,exclude_count=0, # Plot predictions, starting @ exclude_count
+#                           timer_plot=True)                      # Plot emulator and acquisition timing
