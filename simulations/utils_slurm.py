@@ -143,10 +143,8 @@ def submit_scheduled_analyzer(experiment, platform, site, analyzer_script, mem=2
     ## Write bash file to submit
     header_post = shell_header_quest(job_name=f'analyze_exp', t='02:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
-               '\nsource activate /projects/b1139/environments/emod_torch_tobias\n'
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\ncd {wdir}' \
-                f'\npython {analyzer_script} --site {site} --expid {experiment.id}' 
+    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    
@@ -198,10 +196,8 @@ def submit_scheduled_analyzer2(experiment, platform, analyzer_script, mem=20000)
     ## Write bash file to submit
     header_post = shell_header_quest(job_name=f'analyze_exp', t='02:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
-               '\nsource activate /projects/b1139/environments/emod_torch_tobias\n'
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\ncd {wdir}' \
-                f'\npython {analyzer_script} --site {site} --expid {experiment.id}' 
+    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    
@@ -246,10 +242,8 @@ def schedule_calib_analysis(output_dir, platform, site, analyzer_script, mem=800
     ## Write bash file to submit
     header_post = shell_header_quest(job_name=f'analyze_calib', t='02:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
-               '\nsource activate /projects/b1139/environments/emod_torch_tobias\n'
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\ncd {wdir}' \
-                f'\npython {analyzer_script} --name {output_dir}' 
+    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}'
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    
