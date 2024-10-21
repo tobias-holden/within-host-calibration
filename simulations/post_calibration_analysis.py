@@ -127,6 +127,10 @@ def post_calibration_analysis(experiment='',length_scales_by_objective=True,leng
         for _, row in unique_combinations.iterrows():
             site = row['site']
             metric = row['metric']
+            my_path=f'{herepath}/output/{experiment}/performance/GP/{metric}_{site}_LS.csv'
+            if os.path.exists(my_path): 
+                print(f'Skipping {site} {metric} - file exists.')
+                continue
             # Fit single task GP to single site-metric objective
             fit_GP_to_objective(exp=experiment,site=site,metric=metric)
     return

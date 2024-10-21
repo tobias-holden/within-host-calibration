@@ -34,7 +34,7 @@ def fit_GP_to_objective(exp='',site='',metric=''):
         data = json.load(f)
     df = pd.DataFrame({'value': data})
     
-    print(df)
+    #print(df)
     
     # Get batch size
     batch_size=df.at['batch_size', 'value']
