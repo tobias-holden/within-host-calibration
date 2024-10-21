@@ -11,7 +11,12 @@ def clean_analyzers():
 def clean_logs():
     log_dir= manifest.CURRENT_DIR / "log"
     for file in os.listdir(log_dir):
-            os.remove(os.path.join(log_dir,file))
+          os.remove(os.path.join(log_dir,file))
+
+def clean_experiments(): 
+    exp_dir=manifest.job_directory
+    for file in os.listdir(exp_dir):
+          os.remove(os.path.join(exp_dir,file))
 
 if __name__ == "__main__":
     clean_analyzers()
