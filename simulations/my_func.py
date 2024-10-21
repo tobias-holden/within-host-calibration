@@ -21,7 +21,7 @@ from translate_parameters import translate_parameters, get_initial_samples
 
 sites = load_sites()
 
-def my_func(X,wdir,JS=False):
+def my_func(X,wdir):
   # Supply parameters to X
   get_eradication(manifest.use_local_eradication)
   param_key=pd.read_csv("parameter_key.csv")
@@ -38,19 +38,16 @@ def my_func(X,wdir,JS=False):
   ## Commented out to jump-start - NEED TO UNCOMMENT
   print("submitting simulations...", flush=True)
 
-  if not JS:
-      for my_site in sites:
-          if os.path.exists(os.path.join(manifest.simulation_output_filepath,my_site)):
-              shutil.rmtree(os.path.join(manifest.simulation_output_filepath,my_site))
-    
-          coord_df=load_coordinator_df()
-          ns = coord_df.at[my_site, 'nSims']
-          submit_sim(site=my_site, X=df, nSims=ns)
-    
-  #for my_site in sites:
-   #   run_analyzers(site=my_site)
   
+  for my_site in sites:
+      if os.path.exists(os.path.join(manifest.simulation_output_filepath,my_site)):
+          shutil.rmtree(os.path.join(manifest.simulation_output_filepath,my_site))
+
+      coord_df=load_coordinator_df()
+      ns = coord_df.at[my_site, 'nSims']
+      submit_sim(site=my_site, X=df, nSims=ns)
   print("waiting for outputs...", flush=True)
+  
   while True:
       outputs = []
       for my_site in sites:

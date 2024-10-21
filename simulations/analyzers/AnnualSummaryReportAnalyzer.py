@@ -64,6 +64,15 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
             incidence = [0]
         #print(incidence)            
         incidence = np.nanmean(incidence, axis=0)
+        
+        severe_incidence = datatemp['DataByTimeAndAgeBins']['Annual Severe Incidence by Age Bin']
+        severe_incidence = np.array(np.array([i for i in severe_incidence]))
+        #incidence[severe_incidence == 0] = np.nan
+        if np.isnan(severe_incidence).all():
+            severe_incidence = [0]
+        #print(severe_incidence)
+        severe_incidence = np.nanmean(severe_incidence, axis=0)
+
 
         pop = datatemp['DataByTimeAndAgeBins']['Average Population by Age Bin']
         pop = np.array(np.array([i for i in pop]))
@@ -80,8 +89,8 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
         #print(pop)            
         pop = np.nanmean(pop, axis=0)
 
-        df = pd.DataFrame(list(zip(age_bins, prevalence, incidence, pop)),
-                          columns=['Age', 'Prevalence', 'Incidence', 'Population'])
+        df = pd.DataFrame(list(zip(age_bins, prevalence, incidence, severe_incidence, pop)),
+                          columns=['Age', 'Prevalence','Incidence','Severe Incidence','Population'])
 
         return df
 
@@ -102,10 +111,13 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
         df_final.to_csv(os.path.join(self.working_dir, self.expt_name, "inc_prev_data_full.csv"))
 
         groupby_tags = self.sweep_variables
-        groupby_tags.remove('Run_Number')
-        df_summarized = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence', 'Population']].mean().reset_index()
-        df_summarized_std = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence', 'Population']].std()
-        for c in ['Prevalence', 'Incidence', 'Population']:
+        if 'Run_Number' in groupby_tags:
+            groupby_tags.remove('Run_Number')
+            
+      
+        df_summarized = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence', 'Severe Incidence', 'Population']].mean().reset_index()
+        df_summarized_std = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence','Severe Incidence','Population']].std()
+        for c in ['Prevalence', 'Incidence', 'Severe Incidence', 'Population']:
             df_summarized[c + '_std'] = list(df_summarized_std[c])
 
         df_summarized.to_csv(os.path.join(self.working_dir, self.expt_name, "inc_prev_data_final.csv"), index=False)

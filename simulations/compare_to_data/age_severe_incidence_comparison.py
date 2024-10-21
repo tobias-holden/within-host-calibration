@@ -45,7 +45,7 @@ def prepare_severe_incidence_comparison_single_site(sim_df, site):
 
     # Process simulation data
     sim_df_sorted = sim_df.sort_values(by='Age')  # Sort by 'age'
-    sim_df_sorted['cumulative_severe_incidence'] = (sim_df_sorted.groupby(['param_set',"Site","Run_Number"])['Severe Incidence'].cumsum())
+    sim_df_sorted['cumulative_severe_incidence'] = (sim_df_sorted.groupby(['param_set',"Site"])['Severe Incidence'].cumsum())
     sim_df=sim_df_sorted
 
     # Take mean over Run Number
@@ -113,7 +113,7 @@ def compute_severe_incidence_likelihood_poisson(combined_df):
     combined_df["ll"] = poisson_ll(combined_df["cases_observed"],
                                    combined_df["cases_predicted"])
                                    
-    print(combined_df)
+
     return combined_df["ll"].sum()
 
 

@@ -117,11 +117,12 @@ def set_simulation_scenario(simulation, site, csv_path):
     coord_df = coord_df.set_index('site')
 
     # === set up config === #
-    # simulation duration
+    # smear threshold
     smear_threshold = coord_df.at[site,'smear_threshold']
-    simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Gametocytes = smear_threshold  # 0
-    simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Parasites = smear_threshold  # 0
-    
+    if smear_threshold and smear_threshold != 'nan':
+        simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Gametocytes = smear_threshold  # 0
+        simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Parasites = smear_threshold  # 0
+    # simulation duration
     simulation_duration = int(coord_df.at[site, 'simulation_duration'])
     simulation.task.config.parameters.Simulation_Duration = simulation_duration
     # add demographics and set whether there are births and deaths
@@ -161,11 +162,11 @@ def set_simulation_scenario(simulation, site, csv_path):
             summary_report_age_bins = [x for x in summary_report_age_bins if pd.notnull(x)]
         else:
             summary_report_age_bins = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 19, 39, 59, 85]
-
         add_malaria_summary_report(simulation.task, manifest=manifest, start_day=report_start_day,
-                                   end_day=1000000 + report_start_day,
+                                   end_day=simulation_duration,
                                    reporting_interval=365, age_bins=summary_report_age_bins,
-                                   infectiousness_bins=[0, 100], max_number_reports=2000,
+                                   infectiousness_bins=[0, 100], 
+                                   max_number_reports=int((simulation_duration-report_start_day)/365),
                                    parasitemia_bins=density_bins_df, filename_suffix='Annual_Report')
 
     if coord_df.at[site, 'include_MonthlyMalariaSummaryReport']:
