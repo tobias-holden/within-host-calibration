@@ -117,13 +117,14 @@ def set_simulation_scenario(simulation, site, csv_path):
     coord_df = coord_df.set_index('site')
 
     # === set up config === #
-    # simulation duration
-    smear_threshold = coord_df.at[site,'smear_threshold']
-    simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Gametocytes = smear_threshold  # 0
-    simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Parasites = smear_threshold  # 0
-    
+    # simulation duration    
     simulation_duration = int(coord_df.at[site, 'simulation_duration'])
     simulation.task.config.parameters.Simulation_Duration = simulation_duration
+    # smear threshold
+    smear_threshold = coord_df.at[site,'smear_threshold']
+    if smear_threshold and smear_threshold != 'nan':
+        simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Gametocytes = smear_threshold  # 0
+        simulation.task.config.parameters.Report_Detection_Threshold_Blood_Smear_Parasites = smear_threshold  # 0
     # add demographics and set whether there are births and deaths
     demographics_filename = str(coord_df.at[site, 'demographics_filepath'])
     if demographics_filename and demographics_filename != 'nan':
