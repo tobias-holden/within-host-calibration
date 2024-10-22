@@ -70,10 +70,7 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
         #incidence[severe_incidence == 0] = np.nan
         if np.isnan(severe_incidence).all():
             severe_incidence = [0]
-        #print(severe_incidence)
         severe_incidence = np.nanmean(severe_incidence, axis=0)
-
-
         pop = datatemp['DataByTimeAndAgeBins']['Average Population by Age Bin']
         pop = np.array(np.array([i for i in pop]))
         #print(pop[pop==0])
@@ -86,12 +83,10 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
          #   pop
         if np.isnan(pop).all():
             pop = [0]
-        #print(pop)            
-        pop = np.nanmean(pop, axis=0)
-
+        pop = np.nansum(pop,axis=0)
+        #pop = np.nanmean(pop, axis=0)
         df = pd.DataFrame(list(zip(age_bins, prevalence, incidence, severe_incidence, pop)),
                           columns=['Age', 'Prevalence','Incidence','Severe Incidence','Population'])
-
         return df
 
     def reduce(self, all_data: Dict[Union[IWorkflowItem, Simulation], Any]) -> Any:
@@ -114,7 +109,7 @@ class AnnualSummaryReportAnalyzer(BaseAnalyzer):
         if 'Run_Number' in groupby_tags:
             groupby_tags.remove('Run_Number')
             
-      
+        
         df_summarized = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence', 'Severe Incidence', 'Population']].mean().reset_index()
         df_summarized_std = df_final.groupby(['Age']+groupby_tags)[['Prevalence', 'Incidence','Severe Incidence','Population']].std()
         for c in ['Prevalence', 'Incidence', 'Severe Incidence', 'Population']:

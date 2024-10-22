@@ -1,9 +1,14 @@
 import os
 import sys
 sys.path.append('../')
+import warnings
 import manifest
 import numpy as np
 import pandas as pd
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 import math
 from matplotlib import pyplot as plt
 import seaborn as sns
@@ -53,32 +58,22 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
     # subset simulation to months in reference df
     sim_df = sim_df[sim_df['month'].isin(ref_months)]
     sim_df = sim_df[sim_df['agebin'].isin(ref_ages)]
-    inf1 = sim_df
-    # Filter out rows where 'Pop' is not zero
-    inf1 = inf1[inf1['Pop'] != 0]
-    # Calculate 'counts'
-    inf1['counts'] = inf1['infectiousness_bin_freq'] * inf1['Pop']
+    inf_df = sim_df
     
-    # Calculate 'total_obs'
-    inf1['total_obs'] = inf1.groupby(['param_set', 'agebin', 'month'])['Pop'].transform('sum')
+    inf_df = (inf_df[inf_df['month'].isin(inf_ref['month'].unique()) & inf_df['agebin'].isin(inf_ref['agebin'].unique())])
+
+    inf_df = inf_df[inf_df['Pop'] == inf_df['Pop'].max()]
     
-    # Calculate 'total_counts'
-    inf1['total_counts'] = inf1.groupby(['param_set', 'agebin', 'month', 'densitybin', 'infectiousness_bin'])['counts'].transform('sum')
+    inf_df['counts'] = inf_df['infectiousness_bin_freq'] * inf_df['Pop']
     
-    # Select the required columns
-    inf1 = inf1[['param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin', 'counts', 'Pop', 'infectiousness_bin_freq', 'total_obs', 'total_counts']]
+    inf_df = inf_df.groupby(['Site', 'round', 'param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin'], as_index=False).agg({'counts': 'sum'})
     
-    #print(inf1)
-    # Calculate 'end_freq'
-    inf1['end_freq'] = inf1.apply(lambda row: row['total_counts'] / row['total_obs'], axis=1)
+    inf_df['total_count'] = inf_df.groupby(['Site', 'round', 'param_set', 'month', 'agebin'])['counts'].transform('sum')
+
+    inf_df['freq_frac_infect'] = inf_df['counts'] / inf_df['total_count']
     
-    # Remove duplicates
-    inf1 = inf1.drop_duplicates(subset=['param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin'])
+    sim_df=inf_df
     
-    
-    
-    # Group by the specified columns and calculate the mean of 'infectiousness_bin_freq'
-    sim_df = inf1.groupby(['param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin']).agg({'infectiousness_bin_freq': lambda x: x.mean(skipna=True)}).reset_index().rename(columns={"infectiousness_bin_freq":"frac"})
     sim_df['Site'] = str(site).lower()
         
     # standardize column names and merge simulation and reference data frames
@@ -106,7 +101,7 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
 
     #sim_df_by_param_set["site_month"] = sim_df_by_param_set['Site'] + '_year' + sim_df_by_param_set['year'].astype('str') + '_month' + sim_df_by_param_set['month'].astype('str')
     sim_df["site_month"] = sim_df['Site'] + '_month' + sim_df['month'].astype('str')
-    sim_df.rename(columns={"frac": "simulation",
+    sim_df.rename(columns={"freq_frac_infect": "simulation",
                            "infectiousness_bin": "fraction_infected_bin"},
                            inplace=True)
   
@@ -177,7 +172,7 @@ def identify_missing_parameter_sets(combined_df, numOf_param_sets):
         if x not in combined_df['param_set'].values:
             for age in ages:
                 for month in months:
-                    combined_df.loc[len(combined_df.index)] = [x,month,age,np.NaN]
+                    combined_df.loc[len(combined_df.index)] = [x,month,age,np.nan]
             missing_param_sets.append(x)
     return combined_df, missing_param_sets
     
@@ -295,7 +290,7 @@ def plot_infectiousness_comparison_single_site(site,
 def plot_infectiousness_comparison_all_sites(param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
     for s in infectiousness_sites:
         plot_infectiousness_comparison_single_site(s, param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir)
-
+        
 
 if __name__=="__main__":
     cc=compute_infectiousness_LL_by_site(site="laye_2007",numOf_param_sets=1000)

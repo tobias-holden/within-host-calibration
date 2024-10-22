@@ -1,7 +1,11 @@
 import os
 import numpy as np
+import warnings
 import pandas as pd
-
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 from simulations import manifest
 
 from simulations.load_inputs import load_sites
@@ -25,7 +29,7 @@ def compute_dead_likelihood(combined_df):
     combined_df['ll'] = np.nan
     for j in range(len(combined_df['No_Blood'])):
         if combined_df['No_Blood'][j] > 0:
-            combined_df['ll'][j] = -10000
+            combined_df['ll'][j] = -10
         elif combined_df['No_Blood'][j] == 0:
             combined_df['ll'][j] = 0
     return combined_df[["param_set","ll"]]
@@ -41,7 +45,7 @@ def identify_missing_parameter_sets(combined_df, numOf_param_sets):
     missing_param_sets = []
     for x in param_list:
         if x not in combined_df['param_set'].values:
-            combined_df.loc[len(combined_df.index)] = [x,np.NaN]
+            combined_df.loc[len(combined_df.index)] = [x,np.nan]
             missing_param_sets.append(x)
     return combined_df, missing_param_sets
     
