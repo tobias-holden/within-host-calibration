@@ -65,42 +65,6 @@ Running IIVT 0-4 simultaneously, 8 sites each, with 10 concurrent simulations pe
 
 Within each IIVT 'branch' are subfolders with the following structure:
 
-### bo.py
-
-Includes functions that control the entire calibration workflow, such as reading checkpoints, creating initial parameter sets, and what should be performed during each step/iteration of the workflow. Typically these can be left as is but note that this is where you may need to add changes for modifying the inner machinery of calibration.
-
-### batch_generators
-
-Includes basic batch generators using the various acquisition functions. Expected_improvement.py and turbo_thompson_sampling.py should be functional for QUEST. Others may require some small improvements related to botorch functionalities.
-
-* generic
-* array
-* expected_improvement
-* thompson_sampling
-* turbo_expected_improvement
-* **turbo_thompson_sampling**
-* turbo_thompson_sampling_local
-* turbo_upper_confidence_bound
-* upper_confidence_bound
-
-### create_plots
-
-A mixed bag of helper scripts for coordinating relationships, reference sites, likelihood calculators, etc. Also includes some archival scripts from model validation workflow for plotting and generating the comparisons. This folder likely needs some cleanup and may not currently be used in the workflow.
-
-### emulators
-
-GP.py defining the basic setup for the GP Emulation. This script contains additional possible emulators; however, we have only used ExactGP and explored ExactMultiTaskGP so far.
-
-* **Exact GP**
-* Exact GP Turbo Local
-* Exact GP Fixed Noise
-* Exact Multitask GP
-* Approximate GPs...
-
-### process_reference_data
-
-Includes some basic reformatting R scripts that are no longer currently in use for this workflow.
-
 ### reference_datasets
 
 Home for .csv and .xlsx files containing the reference data points. 
