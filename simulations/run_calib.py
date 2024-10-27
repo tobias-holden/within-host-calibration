@@ -30,7 +30,7 @@ from post_calibration_analysis import post_calibration_analysis
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "241013_20_max_infections"
+exp_label = "test_241027"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -45,6 +45,7 @@ init_batches =  int(calib_coord.at["init_batches",1])
 batch_size = int(calib_coord.at["batch_size",1])
 max_eval = int(calib_coord.at["max_eval",1])
 failure_limit = int(calib_coord.at["failure_limit",1])
+success_limit = int(calib_coord.at["success_limit",1])
 
 param_key=pd.read_csv("parameter_key.csv")
 
@@ -197,7 +198,8 @@ clean_analyzers()
 model = ExactGP(noise_constraint=GreaterThan(1e-6))
 
 # Create batch generator(s)
-tts = TurboThompsonSampling(batch_size=batch_size, failure_tolerance=failure_limit, dim=problem.dim)
+tts = TurboThompsonSampling(batch_size=batch_size, failure_tolerance=failure_limit, 
+                            success_tolerance=success_limit,dim=problem.dim)
 batch_generator = tts 
 
 # Create the workflow
