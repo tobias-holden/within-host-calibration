@@ -3,6 +3,10 @@ import warnings
 import sys
 import numpy as np
 import pandas as pd
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 from matplotlib import pyplot as plt
 import seaborn as sns
 sns.set_context("talk")

@@ -1,5 +1,5 @@
 import os, sys, shutil
-sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
+#sys.path.append('/projects/b1139/environments/e/lib/python3.8/site-packages/')
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -83,8 +83,11 @@ class Problem:
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
 
-        Y0 = myFunc(X,wdir)
-        
+        if self.n > 0 :
+            Y0 = myFunc(X,wdir)
+        else: 
+            Y0 = compute_LL_across_all_sites_and_metrics(numOf_param_sets=250)
+            
         
         Y1 = Y0
         

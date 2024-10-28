@@ -11,7 +11,10 @@ from scipy.stats import binom
 
 import math
 from scipy.special import gammaln
-
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 sys.path.append('../../')
 from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
     match_sim_ref_ages
@@ -221,7 +224,7 @@ def identify_missing_parameter_sets(combined_df, numOf_param_sets):
     missing_param_sets = []
     for x in param_list:
         if x not in combined_df['param_set'].values:
-            combined_df.loc[len(combined_df.index)] = [x,np.NaN]
+            combined_df.loc[len(combined_df.index)] = [x,np.nan]
             missing_param_sets.append(x)
     return combined_df, missing_param_sets
     

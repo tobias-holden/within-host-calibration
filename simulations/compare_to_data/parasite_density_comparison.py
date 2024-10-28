@@ -8,6 +8,10 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.stats import binom
 from statsmodels.stats.proportion import proportion_confint
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 
 sys.path.append("../")
 
@@ -209,7 +213,7 @@ def identify_missing_parameter_sets(combined_df, numOf_param_sets):
     missing_param_sets = []
     for x in param_list:
         if x not in combined_df['param_set'].values:
-            combined_df.loc[len(combined_df.index)] = [x,np.NaN]
+            combined_df.loc[len(combined_df.index)] = [x,np.nan]
             missing_param_sets.append(x)
     return combined_df, missing_param_sets
     
