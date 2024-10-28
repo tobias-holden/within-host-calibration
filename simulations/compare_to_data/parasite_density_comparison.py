@@ -11,7 +11,8 @@ from statsmodels.stats.proportion import proportion_confint
 
 sys.path.append("../")
 
-from create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
+sys.path.append('../../')
+from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
     match_sim_ref_ages, get_age_bin_averages, combine_higher_dens_freqs
 from simulations import manifest
 

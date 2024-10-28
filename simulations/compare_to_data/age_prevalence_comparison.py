@@ -14,7 +14,8 @@ from scipy.special import gammaln
 
 sys.path.append("../")
 
-from create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
+sys.path.append('../../')
+from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
     match_sim_ref_ages
 from simulations import manifest
 

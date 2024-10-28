@@ -19,7 +19,8 @@ from scipy.special import gammaln
 from simulations import manifest
 from simulations.load_inputs import load_sites
 from simulations.helpers import load_coordinator_df
-from create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
+sys.path.append('../../')
+from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_mean_from_upper_age, \
     match_sim_ref_ages
 
 coord_csv = load_coordinator_df(characteristic=False, set_index=True)#pd.read_csv(manifest.simulation_coordinator_path)

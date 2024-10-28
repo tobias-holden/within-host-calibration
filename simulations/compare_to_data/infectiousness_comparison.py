@@ -16,7 +16,8 @@ sns.set_context("talk")
 sns.set_style("white")
 from scipy.stats import binom
 from cycler import cycler
-from create_plots.helpers_reformat_sim_ref_dfs import get_fraction_in_infectious_bin
+sys.path.append('../../')
+from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_fraction_in_infectious_bin
 from simulations import manifest
 from simulations.load_inputs import load_sites
 from simulations.helpers import load_coordinator_df
