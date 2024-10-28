@@ -14,12 +14,13 @@ library(glue)
 library(gtools)
 library(reticulate)
 
-# Experiment name
-exp <- "241013_20_max_infections"
+# exp_labeleriment name
+exp <- "test_241027"
+coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
-training_batches <- 5
+training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
 # Batch size
-batch_size <- 200
+batch_size <- coord_df$V2[coord_df$V1=="batch_size"]
 
 score_folder<-paste("output",exp,"performance/scores",sep='/')
 parameters_folder<-paste("output",exp,"performance/parameters",sep='/')
@@ -84,7 +85,8 @@ all_scores %>%
   summarize(score=sum(weighted_ll),
             worst=max(weighted_ll),
             bloodless=sum(bloodless)) %>%
-  mutate(ps=param_set+round*batch_size) %>%
+  ungroup()%>%
+  mutate(ps=round*batch_size + param_set) %>% 
   ungroup() %>% 
   mutate(plotcolor=round-training_batches+2) %>% arrange(-plotcolor) %>%
   mutate(plotcolor=ifelse(plotcolor<1,1,plotcolor)) %>%
@@ -468,6 +470,98 @@ params %>%
 ```
 
 ### plotting vs. data 
+
+```{r}
+sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
+```
+
+
+```{r}
+##### Severe Incidence Plots
+## Plot Annual Incidence vs. Age
+
+severe_incidence_sites <- sim_coord_df$site[sim_coord_df$age_severe_incidence==1]
+
+ddmp <- track_sets %>% filter(site %in% severe_incidence_sites)
+
+for(i in 1:nrow(ddmp))
+{
+  
+  tmp <- read.csv(paste("output/",exp,"/LF_",ddmp$round[i],
+                 "/SO/",ddmp$site[i],"/inc_prev_data_final.csv",sep=''))
+  tmp %>% right_join(ddmp[i,]) -> tmp
+  if(i==1){
+    inc_df <- tmp 
+  } else {
+    inc_df <- rbind.data.frame(inc_df,tmp)
+  }
+}
+
+
+# Read in reference data
+
+inc_ref <-read.csv("../reference_datasets/snow_severe_absolute_incidence.csv")
+
+inc_ref %>% filter(Site %in% severe_incidence_sites) -> inc_ref
+
+for(s in unique(inc_df$site)){
+  inc_df %>%
+  filter(site==s) %>%
+  filter((param_set==1 & round==0) | round==max(round)) %>%
+  filter(Age %in% inc_ref$Age) %>%
+  ggplot(aes(x=Age,y=Incidence)) +
+  ggtitle(toupper(s))+
+  theme_minimal(base_size=16) +
+  geom_line(aes(group=interaction(round,param_set),
+                #color=ifelse(round<training_batches,"gray",my_pal[round+1]),
+                color=factor(param_set),
+            linewidth=round==max(round),
+            alpha=round==max(round))) +
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence,
+                                                shape="reference",size=n)) +
+  #scale_color_identity() +
+  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  scale_x_log10()+
+  labs(color=NULL,shape=NULL,size="Population") + ylab("Incidence per person per year") +
+    guides(linewidth="none")+
+  theme(legend.position="bottom") +
+  scale_alpha_manual(values=c(1,1)) +
+  scale_linewidth_manual(values=c(1,1))+
+  scale_size_continuous()+
+  guides(alpha="none",shape="none") -> pp
+  print(pp)
+  ggsave(paste(objectives_folder,paste(s,"incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
+
+  inc_df %>%
+  filter(site==s) %>%
+  filter(Age %in% inc_ref$Age) %>%
+  ggplot(aes(x=Age,y=Incidence)) +
+  ggtitle(toupper(s))+
+  theme_minimal(base_size=16) +
+  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
+            linewidth=round==max(round),
+            alpha=round==max(round))) +
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence,
+                                                shape="reference",size=n)) +
+  scale_color_identity() +
+  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  scale_x_log10()+
+  labs(linetype=NULL,color=NULL,shape=NULL,size="Population") + 
+  ylab("Incidence per person per year") +
+  guides(linewidth="none",alpha="none",shape="none")+
+  theme(legend.position="bottom") +
+  scale_alpha_manual(values=c(1,1)) +
+  scale_linewidth_manual(values=c(1,1))+
+  scale_size_continuous()+
+  scale_linetype_manual(values=c(2,rep(1,length(unique(inc_df$round)))))-> pp
+  print(pp)
+  ggsave(paste(objectives_folder,paste(s,"incidence.png",sep="_"),sep='/'),pp,height = 6,width=6)
+}
+
+remove(inc_df)
+
+```
+
 
 
 ```{r}
@@ -1113,21 +1207,5 @@ if(length(ls_list)>1){
   ggsave(paste(GP_folder,"average_ranked_lengthscales.png",sep="/"),width=10,height=6)
     
 }
-```
-
-```{r,eval=F,include=F}
-
-severe %>% 
-  ggplot(aes(x=Age,y=cumulative_severe_incidence*1000)) +
-  scale_x_continuous(breaks = unique(severe$Age)) +
-  ylab("Cumulative rate of severe malaria\n(per 1,000 children)") +
-  geom_line(aes(group=Site)) +
-  geom_point(aes(shape=Site),size=2) +
-  labs(shape=NULL)+
-  theme_minimal(base_size=14)# +
-  theme(legend.position=c(0.05,1),legend.justification = c(0,1),
-        legend.background =element_rect(fill="white",color="transparent"))
-  
-
 ```
 

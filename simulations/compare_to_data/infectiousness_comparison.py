@@ -61,15 +61,15 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
     sim_df = sim_df[sim_df['agebin'].isin(ref_ages)]
     inf_df = sim_df
     
-    inf_df = (inf_df[inf_df['month'].isin(inf_ref['month'].unique()) & inf_df['agebin'].isin(inf_ref['agebin'].unique())])
+    inf_df = (inf_df[inf_df['month'].isin(ref_df['month'].unique()) & inf_df['agebin'].isin(ref_df['agebin'].unique())])
 
     inf_df = inf_df[inf_df['Pop'] == inf_df['Pop'].max()]
     
     inf_df['counts'] = inf_df['infectiousness_bin_freq'] * inf_df['Pop']
     
-    inf_df = inf_df.groupby(['Site', 'round', 'param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin'], as_index=False).agg({'counts': 'sum'})
+    inf_df = inf_df.groupby(['Site', 'param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin'], as_index=False).agg({'counts': 'sum'})
     
-    inf_df['total_count'] = inf_df.groupby(['Site', 'round', 'param_set', 'month', 'agebin'])['counts'].transform('sum')
+    inf_df['total_count'] = inf_df.groupby(['Site', 'param_set', 'month', 'agebin'])['counts'].transform('sum')
 
     inf_df['freq_frac_infect'] = inf_df['counts'] / inf_df['total_count']
     

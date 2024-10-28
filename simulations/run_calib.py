@@ -30,7 +30,7 @@ from post_calibration_analysis import post_calibration_analysis
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_241027"
+exp_label = "test_241028"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -82,8 +82,8 @@ class Problem:
         param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
-        Y0 = myFunc(X,wdir) 
-        
+
+        Y0 = myFunc(X,wdir)
         Y1 = Y0
         
         if self.n == 0:

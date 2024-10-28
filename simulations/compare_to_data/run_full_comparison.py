@@ -30,7 +30,7 @@ def compute_LL_across_all_sites_and_metrics(numOf_param_sets = 64):
     combined = []
     if len(coord_df[coord_df['infectiousness_to_mosquitos'] == True]) > 0: 
         infectious_LL = compute_infectious_LL_for_all_sites(numOf_param_sets)
-        combined.append(infectious_ll)
+        combined.append(infectious_LL)
     if len(coord_df[coord_df['age_parasite_density'] == True]) > 0: 
         density_LL = compute_parasite_density_LL_for_all_sites(numOf_param_sets)
         combined.append(density_LL)
@@ -80,6 +80,5 @@ def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.s
 
 if __name__ == "__main__":
     
-
-    print(compute_LL_across_all_sites_and_metrics(3))
+    #print(compute_LL_across_all_sites_and_metrics(100))
 
