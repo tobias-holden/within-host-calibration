@@ -83,11 +83,7 @@ class Problem:
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
 
-        if self.n > 0 :
-            Y0 = myFunc(X,wdir)
-        else: 
-            Y0 = compute_LL_across_all_sites_and_metrics(numOf_param_sets=250)
-            
+        Y0 = myFunc(X,wdir)
         
         Y1 = Y0
         
