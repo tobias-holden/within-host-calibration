@@ -85,10 +85,6 @@ class Problem:
 
         Y0 = myFunc(X,wdir)
         
-        # Temporary fix to recognize that zero (0) infectiousnessness_LL is bad
-        Y0.loc[(Y0['metric'] == 'infectiousness') & (Y0['ll'] == 0), 'B'] = -10000
-
-        
         
         Y1 = Y0
         
@@ -102,6 +98,14 @@ class Problem:
             score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
         Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
+        
+        # Temporary fix to recognize that post-weighting zero (0) LL is bad
+        Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'incidence') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'severe_incidence') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'prevalence') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'asex_density') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'gamet_density') & (Y1['ll'] == 0), 'll'] = -10
         
         Y = Y1.groupby("param_set").agg({"ll": lambda x: x.sum(skipna=False)}).reset_index().sort_values(by=['ll'])
         #Ym = Y1.groupby("param_set").agg({"ll": lambda x: x.min(skipna=False)}).reset_index().sort_values(by=['ll'])
