@@ -14,8 +14,8 @@ library(glue)
 library(gtools)
 library(reticulate)
 
-# exp_labeleriment name
-exp <- "test_241027"
+# experiment name
+exp <- "test_241028"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]

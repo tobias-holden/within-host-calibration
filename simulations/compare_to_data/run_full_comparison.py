@@ -31,21 +31,21 @@ def compute_LL_across_all_sites_and_metrics(numOf_param_sets = 64):
     if len(coord_df[coord_df['infectiousness_to_mosquitos'] == True]) > 0: 
         infectious_LL = compute_infectious_LL_for_all_sites(numOf_param_sets)
         combined.append(infectious_LL)
-    if len(coord_df[coord_df['age_parasite_density'] == True]) > 0: 
+    if len(coord_df[coord_df['age_parasite_density'] == True]) > 0:
         density_LL = compute_parasite_density_LL_for_all_sites(numOf_param_sets)
         combined.append(density_LL)
-    if len(coord_df[coord_df['age_prevalence'] == True]) > 0: 
+    if len(coord_df[coord_df['age_prevalence'] == True]) > 0:
         prevalence_LL = compute_prev_LL_for_all_sites(numOf_param_sets)
         combined.append(prevalence_LL)
         annual_prevalence_LL = compute_annual_prev_LL_for_all_sites(numOf_param_sets)
         combined.append(annual_prevalence_LL)
-    if len(coord_df[coord_df['age_incidence'] == True]) > 0: 
+    if len(coord_df[coord_df['age_incidence'] == True]) > 0:
         incidence_LL = compute_inc_LL_for_all_sites(numOf_param_sets)
         combined.append(incidence_LL)
-    if len(coord_df[coord_df['age_severe_incidence'] == True]) > 0: 
+    if len(coord_df[coord_df['age_severe_incidence'] == True]) > 0:
         severe_incidence_LL = compute_severe_incidence_LL_for_all_sites(numOf_param_sets)
         combined.append(severe_incidence_LL)
-    if len(coord_df[coord_df['dead_people_check'] == True]) > 0: 
+    if len(coord_df[coord_df['dead_people_check'] == True]) > 0:
         dead_LL = compute_dead_LL_for_all_sites(numOf_param_sets)
         combined.append(dead_LL)
 
@@ -80,5 +80,5 @@ def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.s
 
 if __name__ == "__main__":
     
-    #print(compute_LL_across_all_sites_and_metrics(100))
+    print(compute_LL_across_all_sites_and_metrics(100))
 

@@ -84,6 +84,12 @@ class Problem:
         os.makedirs(wdir,exist_ok=True) 
 
         Y0 = myFunc(X,wdir)
+        
+        # Temporary fix to recognize that zero (0) infectiousnessness_LL is bad
+        Y0.loc[(Y0['metric'] == 'infectiousness') & (Y0['ll'] == 0), 'B'] = -10000
+
+        
+        
         Y1 = Y0
         
         if self.n == 0:
@@ -241,7 +247,7 @@ params_241013 = [0.063819259,
                 0.694589051,
                 0.129187744,
                 0.294669431,
-                0.483482927, # Max Individual Infections (20)
+                1.000000000, # Max Individual Infections (20)
                 0.410575954,
                 0.391240481,
                 0.199995755]

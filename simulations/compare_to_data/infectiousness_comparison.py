@@ -185,8 +185,6 @@ def compute_infectiousness_LL_by_site(site,numOf_param_sets):
 
     #print(sim_df)
     combined_df = prepare_infectiousness_comparison_single_site(sim_df, site)
-    cc=combined_df[combined_df['month']==1]
-    cc=cc[cc['agebin']==5]
     
     #print(cc.to_string())
     ll_by_param_set = combined_df.groupby(["param_set","month","agebin"]) \
@@ -200,6 +198,7 @@ def compute_infectiousness_LL_by_site(site,numOf_param_sets):
     
     ll_by_param_set["metric"] = "infectiousness"
     ll_by_param_set["site"] = site
+    
     
     if len(missing_param_sets) > 0:
         print(f'Warning {site} is missing param_sets {missing_param_sets} for infectiousness')
@@ -294,14 +293,16 @@ def plot_infectiousness_comparison_all_sites(param_sets_to_plot=None,plt_dir=os.
         
 
 if __name__=="__main__":
-    cc=compute_infectiousness_LL_by_site(site="laye_2007",numOf_param_sets=1000)
-    print(cc.to_string())
-    print(cc.sort_values(by=['param_set']).to_string())
-    cc=cc.groupby(["param_set","site","metric"])['ll_spec'] \
-             .apply("sum") \
-             .reset_index() \
-             .rename(columns={"ll_spec":"ll"})
-    print(cc.sort_values(by=['ll']).to_string())
+    # cc=compute_infectiousness_LL_by_site(site="laye_2007",numOf_param_sets=1000)
+    # print(cc.to_string())
+    # print(cc.sort_values(by=['param_set']).to_string())
+    # cc=cc.groupby(["param_set","site","metric"])['ll_spec'] \
+    #          .apply("sum") \
+    #          .reset_index() \
+    #          .rename(columns={"ll_spec":"ll"})
+    # print(cc.sort_values(by=['ll']).to_string())
+    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/test_241027/LF_0/SO/laye_2007/infectiousness_by_age_density_month.csv"))
+    print(prepare_infectiousness_comparison_single_site(sim_df,'laye_2007'))
     # 
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[92])
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[1,532],
