@@ -14,6 +14,7 @@ from simulations import manifest
 from simulations.load_inputs import load_sites
 from simulations.helpers import load_coordinator_df
 from pandas.errors import SettingWithCopyWarning
+import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 pd.options.mode.chained_assignment = None  # default='warn'

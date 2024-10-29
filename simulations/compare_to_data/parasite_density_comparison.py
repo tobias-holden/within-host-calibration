@@ -5,6 +5,7 @@ import math
 
 import numpy as np
 import pandas as pd
+import warnings
 from matplotlib import pyplot as plt
 from scipy.stats import binom
 from statsmodels.stats.proportion import proportion_confint

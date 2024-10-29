@@ -30,7 +30,7 @@ from post_calibration_analysis import post_calibration_analysis
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_241028"
+exp_label = "test_241028_small"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -96,6 +96,7 @@ class Problem:
             score_df=pd.concat([score_df,Y0])
             score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
+        # Apply weights
         Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
         
         # Temporary fix to recognize that post-weighting zero (0) LL is bad

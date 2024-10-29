@@ -8,7 +8,7 @@ import seaborn as sns
 sns.set_context("talk")
 sns.set_style("white")
 from scipy.stats import binom
-
+import warnings
 import math
 from scipy.special import gammaln
 from pandas.errors import SettingWithCopyWarning

@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import pandas as pd
 from pandas.errors import SettingWithCopyWarning
+import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 pd.options.mode.chained_assignment = None  # default='warn'

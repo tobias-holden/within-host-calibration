@@ -1,6 +1,6 @@
-init_size,250
+init_size,25
 init_batches,1
-batch_size,250
-max_eval,1000
+batch_size,25
+max_eval,250
 failure_limit,2
 success_limit,8

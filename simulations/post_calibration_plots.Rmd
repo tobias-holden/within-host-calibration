@@ -15,7 +15,7 @@ library(gtools)
 library(reticulate)
 
 # experiment name
-exp <- "test_241028"
+exp <- "test_241028_small"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
@@ -23,9 +23,15 @@ training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
 batch_size <- coord_df$V2[coord_df$V1=="batch_size"]
 
 score_folder<-paste("output",exp,"performance/scores",sep='/')
+if(!(dir.exists(score_folder))){dir.create(score_folder)}
 parameters_folder<-paste("output",exp,"performance/parameters",sep='/')
+if(!(dir.exists(parameters_folder))){dir.create(parameters_folder)}
+search_space_folder<-paste("output",exp,"performance/parameters/search_space",sep='/')
+if(!(dir.exists(search_space_folder))){dir.create(search_space_folder)}
 GP_folder<-paste("output",exp,"performance/GP",sep='/')
+if(!(dir.exists(GP_folder))){dir.create(GP_folder)}
 objectives_folder<-paste("output",exp,"objectives",sep='/')
+if(!(dir.exists(objectives_folder))){dir.create(objectives_folder)}
 
 # Custom color palette
 my_pal <- c("gray",
@@ -74,6 +80,11 @@ all_scores %>%
   mutate(weighted_ll=ll/baseline) %>%
   mutate(bloodless=(metric=="no_blood" & weighted_ll>0)) -> all_scores
 
+all_scores %>% arrange(weighted_ll)
+
+all_scores %>% mutate(weighted_ll = ifelse(metric!="no_blood" & ll==0,10,weighted_ll)) -> all_scores
+
+all_scores %>% arrange(weighted_ll)
 
 #### Summary scores over time
 all_scores %>%
@@ -379,39 +390,39 @@ all_scores %>% ungroup() %>% select(round) -> pp
 
 pp %>% group_by(round) %>% count() %>% select(round) ->pp
 
-for(i in 1:nrow(pp))
-{
-  if(i==1){
-    
-    params <- read.csv(paste("output",exp,
-                             paste('LF',pp$round[i],sep='_'),"translated_params.csv",sep='/')) %>%
-              mutate(round=pp$round[i])
+LFS <- list.dirs(path = glue('output/{exp}'),recursive = F)
+LFS <- LFS[grepl("LF",LFS)]
+
+for(i in seq(0,length(LFS)-1,1)){
+  if(i==0){
+    tp <- read.csv(paste(LFS[i+1],"translated_params.csv",sep='/'))
+    tp %>% mutate(round=i) ->  tp
   } else {
-    rbind.data.frame(params,
-                    read.csv(paste("output",exp,
-                             paste('LF',pp$round[i],sep='_'),"translated_params.csv",sep='/')) %>%
-                    mutate(round=pp$round[i])) -> params
+    tmp <- read.csv(paste(LFS[i+1],"translated_params.csv",sep='/'))
+    tmp %>% mutate(round=i) -> tmp
+    tp <- rbind.data.frame(tp,tmp)
   }
 }
 
-params %>% 
+
+tp %>% 
   mutate(unit_value=gsub("tensor\\(","",unit_value)) %>%
   mutate(unit_value=gsub("\\)","",unit_value)) %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
   mutate(emod_value=gsub("tensor\\(","",emod_value)) %>%
   mutate(emod_value=gsub("\\)","",emod_value)) %>%
-  mutate(parameter=gsub("_"," ",parameter)) -> params
+  mutate(parameter=gsub("_"," ",parameter)) -> tp
   
 
-params %>%
+tp %>%
   mutate(parameter=gsub("Survival Rate","\nSurvival Rate",parameter))%>%
   mutate(parameter=gsub("Inactivation","\nInactivation",parameter))%>%
   mutate(parameter=gsub("Base","",parameter)) %>%
   mutate(parameter=gsub("Falciparum","",parameter)) %>%
-  mutate(parameter=gsub("Nonspecific Anti","Nonspecific Anti-\n",parameter)) -> params
+  mutate(parameter=gsub("Nonspecific Anti","Nonspecific Anti-\n",parameter)) -> tp
 
 
-param_levels <- unique(params$parameter)
+param_levels <- unique(tp$parameter)
 param_levels <- param_levels[c(1,5,10,7,6,11,12,
                                4,2,9,3,
                                14,13,8,17,15,16)]
@@ -420,7 +431,7 @@ best_round <- max(track_sets$round)
 best_ps <- max(track_sets$param_set[track_sets$round==best_round])
 
 
-params %>%
+tp %>%
   mutate(emod_value=ifelse(transformation=="log",
                            log10(as.numeric(emod_value)),
                            as.numeric(emod_value)))%>%
@@ -446,7 +457,7 @@ params %>%
   pp
   ggsave(paste(parameters_folder,"emod_values.png",sep='/'),pp,height = 12,width=10)
 
-  params %>%
+  tp %>%
   mutate(unit_value=as.numeric(unit_value))%>%
   mutate(parameter=parameter) %>%
   ggplot(aes(x=round)) +
@@ -464,10 +475,94 @@ params %>%
   scale_y_continuous(limits=c(0,1))+
   scale_color_brewer(palette="Set1") +
   theme_minimal(base_size=14) +
-  labs(color=NULL) + ylab("EMOD parameter value") + xlab("Batch #") -> pp
+  labs(color=NULL) + ylab("Unit parameter value") + xlab("Batch #") -> pp
   pp
   ggsave(paste(parameters_folder,"unit_values.png",sep='/'),pp,height = 12,width=10)
+  
+  
+  
+  
+tp %>% ungroup() %>%
+  filter(unit_value>=0) %>%
+  ggplot(aes(x=param_set+round*batch_size,
+             y=unit_value))+
+  theme_minimal(base_size=12) +
+  facet_wrap(~factor(parameter,levels=param_levels),ncol=3) +
+  xlab("") + ylab("Unit parameter value") +
+  geom_point() + 
+  geom_point(data=.%>%filter(param_set==1 & round==0),
+             aes(color="default")) +
+  geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
+             aes(color="best")) +
+  labs(color=NULL) +
+  theme(legend.position=c(0.9,0),
+        legend.justification=c(1,0.2))
 ```
+
+
+```{r}
+scores %>% left_join(tp %>% mutate(round=as.integer(round)) %>% select(param_set,round,parameter,unit_value)) %>% 
+  mutate(score=ll/baseline) %>%
+  group_by(round,param_set,parameter,metric) %>%
+  mutate(metric_score=sum(score)) %>%
+  group_by(round,param_set,parameter) %>%
+  mutate(total_score=sum(score)) %>%
+  ungroup() -> spread_df
+
+parameters <- unique(spread_df$parameter)
+if(length(parameters)%%2==1){parameters <- c(parameters,parameters[1])}
+
+my_plots <- list()
+
+for(i in seq(1,length(parameters),2)){
+  j=i+1
+  df_a <- spread_df %>% filter(parameter==parameters[i]) %>% select(param_set,round,metric,metric_score,parameter,unit_value)
+  df_b <- spread_df %>% filter(parameter==parameters[j]) %>% select(param_set,round,metric,metric_score,parameter,unit_value)
+
+  df_a  %>% 
+    rbind.data.frame(df_b) %>%
+    mutate(param_set=param_set+round*batch_size) %>% arrange(-param_set) %>%
+    pivot_wider(names_from = parameter, values_from = unit_value, values_fn = mean) %>%
+    arrange(-param_set) %>%
+    ggplot(aes(x=!!sym(parameters[i]),
+               y=!!sym(parameters[j]))) +
+    facet_wrap(~metric) +
+    theme_minimal(base_size=12)+
+    geom_point(aes(color=log10(metric_score))) +
+    scale_color_distiller(palette="Spectral") +
+    labs(color="Log Score") +
+    theme(legend.position=c(0.9,0),
+          legend.justification = c(1,0),
+          legend.direction = "horizontal")-> pp
+  
+  print(pp)
+}
+
+
+for(i in seq(1,length(parameters),2)){
+  j=i+1
+  df_a <- spread_df %>% filter(parameter==parameters[i]) %>% select(param_set,round,total_score,parameter,unit_value)
+  df_b <- spread_df %>% filter(parameter==parameters[j]) %>% select(param_set,round,total_score,parameter,unit_value)
+
+  df_a  %>% 
+    rbind.data.frame(df_b) %>%
+    mutate(param_set=param_set+round*batch_size) %>% arrange(-param_set) %>%
+    pivot_wider(names_from = parameter, values_from = unit_value, values_fn = mean) %>%
+    arrange(-param_set) %>%
+    ggplot(aes(x=!!sym(parameters[i]),
+               y=!!sym(parameters[j]))) +
+    theme_minimal(base_size=16)+
+    geom_point(aes(color=log10(total_score))) +
+    scale_color_distiller(palette="Spectral") +
+    labs(color="Log Score") -> pp
+  
+  ggsave(paste(paste(parameters_folder,"search_space",paste(parameters[i],"x",parameters[j],sep="_"),sep="/"),".png",sep=''),
+         height=6,width=6)
+}
+
+```
+
+
 
 ### plotting vs. data 
 
@@ -509,7 +604,7 @@ for(s in unique(inc_df$site)){
   filter(site==s) %>%
   filter((param_set==1 & round==0) | round==max(round)) %>%
   filter(Age %in% inc_ref$Age) %>%
-  ggplot(aes(x=Age,y=Incidence)) +
+  ggplot(aes(x=Age,y=Severe.Incidence)) +
   ggtitle(toupper(s))+
   theme_minimal(base_size=16) +
   geom_line(aes(group=interaction(round,param_set),
@@ -535,7 +630,7 @@ for(s in unique(inc_df$site)){
   inc_df %>%
   filter(site==s) %>%
   filter(Age %in% inc_ref$Age) %>%
-  ggplot(aes(x=Age,y=Incidence)) +
+  ggplot(aes(x=Age,y=Severe.Incidence)) +
   ggtitle(toupper(s))+
   theme_minimal(base_size=16) +
   geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
@@ -641,7 +736,7 @@ namawala_prev_df %>%
   scale_color_identity() +
   theme_minimal(base_size=16) +
   scale_x_continuous(breaks = unique(namawala_prev_df$Age),minor_breaks = NULL) ->pp
-
+  
   ggsave(paste(objectives_folder,paste("Namawala_prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 remove(namawala_prev_df)
@@ -729,7 +824,7 @@ ddmp <- track_sets %>% filter(site %in% incidence_sites)
 for(i in 1:nrow(ddmp))
 {
   
-  tmp <- read.csv(paste("..output/",exp,"/LF_",ddmp$round[i],
+  tmp <- read.csv(paste("output/",exp,"/LF_",ddmp$round[i],
                  "/SO/",ddmp$site[i],"/inc_prev_data_final.csv",sep=''))
   tmp %>% right_join(ddmp[i,]) -> tmp
   if(i==1){
@@ -1088,15 +1183,16 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
         ### exclude lowest agebin
         filter(agebin!=0.5) %>%
         # exclude zero densitybin
-        filter(densitybin>0)%>%
+        #filter(densitybin>0)%>%
         # remove 0 probabilities 
         filter(freq_frac_infect>0) %>%
-        ggplot(aes(x=densitybin,y=factor(infectiousness_bin),size=freq_frac_infect)) +
+        ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin),size=freq_frac_infect)) +
         facet_wrap(interaction(month.name[month],Site,sep=" in ")~agebin) +
-        scale_x_log10(breaks=unique(inf_df$densitybin)) +
-        geom_point(aes(shape="simulation",color=factor(paste("Round",round,"#",param_set)))) +
+        
+        #scale_x_log10(breaks=unique(inf_df$densitybin)) +
+        geom_point(aes(color=factor(paste("Round",round,"#",param_set)))) +
         geom_point(data=inf_ref %>% filter(site==s & agebin!=0.5)%>%
-                     filter(densitybin>0)%>%
+                     #filter(densitybin>0)%>%
                      filter(freq_frac_infect>0)%>%
                      mutate(infectiousness_bin=fraction_infected_bin,
                                            Site=site),
@@ -1105,7 +1201,9 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
         scale_size_binned(breaks = c(0.01,0.05,0.1,0.2,0.3,0.5),range = c(0.1,4),
                           guide=guide_legend())+
         theme_minimal(base_size=14) +
+        guides(size=guide_legend(ncol=2))+
         theme(legend.position="bottom",
+              legend.direction = "vertical",
               panel.grid.minor=element_blank(),
               axis.text.x=element_text(angle=45,hjust=1)) +
         xlab("Gametocyte Density") + ylab("Infectiousness Bin (%)") +
@@ -1149,7 +1247,7 @@ if(length(ls_list)>1){
     mutate(site=gsub('.{5}$', '', site))%>%
     mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
     mutate(metric=gsub("asex_density","asexual parasites",metric)) %>%
-    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",params$parameter[plevels])),
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",tp$parameter[plevels])),
                y=paste(substr(metric,1,4),substr(site,1,4),sep=". "))) +
     geom_tile(color="white",
               aes(fill=value)) +
@@ -1168,7 +1266,7 @@ if(length(ls_list)>1){
     mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
     mutate(metric=gsub("asex_density","asexual parasites",metric)) %>%
     mutate(value=percent_rank(value)) %>%
-    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",params$parameter[plevels])),
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",tp$parameter[plevels])),
                y=paste(substr(metric,1,4),'.    ',substr(site,1,4),'.',sep=""))) +
     geom_tile(color="white",
               aes(fill=value)) +
@@ -1192,7 +1290,7 @@ if(length(ls_list)>1){
     ungroup() %>%
     mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
     mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>%
-    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",params$parameter[plevels]))),
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
                y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence")))) +
     theme_minimal(base_size=16) +
