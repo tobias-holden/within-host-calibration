@@ -112,7 +112,7 @@ def prepare_annual_prevalence_comparison_single_site(sim_df, site):
         else:
             return x
 
-    #combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
+    combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
     #print(combined_df)
     combined_df['sim.Trials'] = combined_df['Population']
     combined_df['sim.Observations'] = combined_df['sim.Trials']*combined_df['simulation']
@@ -166,7 +166,8 @@ def compute_prevalence_likelihood2(combined_df):
 
 
 def compute_prevalence_likelihood3(combined_df):
-    negbinom_ll = np.vectorize(nbinom.logpm) #PMF of negative binomial distribution
+
+    binom_ll = np.vectorize(binom.logpmf) #PMF of negative binomial distribution
     
     combined_df["ll"] = binom_ll(combined_df["ref.Observations"],
                                  combined_df["ref.Trials"],
@@ -194,7 +195,7 @@ def compute_annual_prev_LL_by_site(site, numOf_param_sets):
     combined_df = prepare_annual_prevalence_comparison_single_site(sim_df, site)
 
     ll_by_param_set = combined_df.groupby("param_set") \
-        .apply(compute_prevalence_likelihood2) \
+        .apply(compute_prevalence_likelihood3) \
         .reset_index() \
         .rename(columns={0: "ll"})
         

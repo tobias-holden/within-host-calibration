@@ -6,9 +6,9 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
-#SBATCH --job-name="calibration_severe"
-#SBATCH --error=log/calibration_severe.%j.err
-#SBATCH --output=log/calibration_severe.%j.out
+#SBATCH --job-name="calibration_ll"
+#SBATCH --error=log/calibration_ll.%j.err
+#SBATCH --output=log/calibration_ll.%j.out
 
 
 module purge all

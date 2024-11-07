@@ -112,7 +112,7 @@ def prepare_incidence_comparison_single_site(sim_df, site):
         else:
             return x
 
-    #combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
+    combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
     #print(combined_df)
     combined_df['sim.Trials'] = combined_df['Population']
     combined_df['sim.Observations'] = combined_df['sim.Trials']*combined_df['simulation']
@@ -194,7 +194,7 @@ def compute_inc_LL_by_site(site, numOf_param_sets):
     combined_df = prepare_incidence_comparison_single_site(sim_df, site)
 
     ll_by_param_set = combined_df.groupby("param_set") \
-        .apply(compute_incidence_likelihood2) \
+        .apply(compute_incidence_likelihood1) \
         .reset_index() \
         .rename(columns={0: "ll"})
         

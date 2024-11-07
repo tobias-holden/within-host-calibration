@@ -80,5 +80,5 @@ def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.s
 
 if __name__ == "__main__":
     
-    print(compute_LL_across_all_sites_and_metrics(100))
-
+    x=compute_LL_across_all_sites_and_metrics(100)
+    x.to_csv("sample_out.csv")

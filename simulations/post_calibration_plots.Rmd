@@ -13,15 +13,17 @@ library(ggrepel)
 library(glue)
 library(gtools)
 library(reticulate)
+library(patchwork)
 
 # experiment name
-exp <- "test_241028_small"
+exp <- "test_241105"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
 # Batch size
 batch_size <- coord_df$V2[coord_df$V1=="batch_size"]
 
+dir.create(paste("output",exp,"performance",sep="/"))
 score_folder<-paste("output",exp,"performance/scores",sep='/')
 if(!(dir.exists(score_folder))){dir.create(score_folder)}
 parameters_folder<-paste("output",exp,"performance/parameters",sep='/')
@@ -48,17 +50,171 @@ pal_df <-data.frame(color=my_pal)
 pal_df$id <- 0:(nrow(pal_df)-1)
 ```
 
-
+Load scores
 
 ```{r}
-# Read in log-likelihood scores
 scores <- read.csv(paste("output",exp,'all_LL.csv',sep='/'))
-# Filter to exclude rows with missing (NA) scores
-scores %>% group_by(round,param_set) %>% mutate(has_na=sum(is.na(ll))>0) %>%
-  filter(!has_na) %>%
-  select(-has_na) -> scores
 
-all_scores <- scores %>% select(-colnames(scores)[grepl("Unnamed",colnames(scores))])
+theme_set(theme_minimal(base_size=14))
+
+scores %>% 
+  filter(metric!="no_blood") %>%
+  ggplot(aes(x=site,y=-log10(-ll))) +
+  geom_boxplot(aes(group=interaction(site,metric),
+                   color=metric),
+               position=position_dodge(preserve="total")) +
+  geom_point(data=.%>%filter(round==0 & param_set==1),
+             aes(group=interaction(site,metric),
+                  shape="baseline"),
+             position = position_dodge(width = .75))+
+  theme(axis.text.x=element_text(angle=-90)) +
+  labs(color=NULL,shape=NULL) +
+  ylab("-Log10(-score)") +
+  scale_color_brewer(palette="Dark2") -> p1
+
+
+  scores %>% 
+  filter(metric!="no_blood") %>%
+  ggplot(aes(x=metric,y=-log10(-ll))) +
+  geom_boxplot(aes(group=interaction(site,metric),
+                   color=site),
+               position=position_dodge(preserve="total")) +
+  geom_point(data=.%>%filter(round==0 & param_set==1),
+             aes(group=interaction(site,metric),
+                  shape="baseline"),
+             position = position_dodge(width = .75))+
+  theme(axis.text.x=element_text(angle=-90)) +
+  ylab("-Log10(-score)") +
+  labs(color=NULL,shape=NULL) -> p2
+
+p1 / p2
+
+
+scores %>% 
+  filter(metric!="no_blood") %>%
+  ggplot(aes(x=site,y=-ll/baseline*my_weight)) +
+  geom_hline(yintercept = 1)+
+  geom_boxplot(aes(group=interaction(site,metric),
+                   color=metric),
+               position=position_dodge(preserve="single")) +
+  theme(axis.text.x=element_text(angle=-90)) +
+  scale_y_log10() +
+  labs(color="") +
+  ylab("-weighted_score") +
+  scale_color_brewer(palette="Dark2") -> p3
+  
+scores %>% 
+  filter(metric!="no_blood") %>%
+  ggplot(aes(x=metric,y=-ll/baseline*my_weight)) +
+  geom_hline(yintercept = 1)+
+  geom_boxplot(aes(group=interaction(site,metric),
+                   color=site),
+               position=position_dodge(preserve="single")) +
+  theme(axis.text.x=element_text(angle=-90)) +
+  ylab("-weighted_score") +
+  scale_y_log10()+
+  labs(color="") -> p4 
+
+p3 / p4
+
+#####
+
+
+(p1/p2) | (p3/p4)
+
+
+
+scores %>% group_by(site,metric) %>%
+  arrange(site,metric,round,param_set) %>%
+  mutate(cum_min=cummin(-ll/baseline*my_weight)) %>%
+  ggplot(aes(x=param_set+round*batch_size,y=cum_min)) +
+  facet_wrap(~metric) +
+  geom_path(aes(group=site,color=site))
+
+
+scores %>% 
+  ggplot(aes(x=param_set+round*batch_size,y=-log10(-ll/baseline*my_weight))) + 
+  facet_wrap(metric~site,scales="free_y") +
+  geom_point(aes(color=round)) +
+  geom_hline(data=.%>%filter(round==0 & param_set==1),
+             aes(yintercept=-log10(-ll/baseline*my_weight)),linetype=2) +
+  geom_smooth() +
+  theme_minimal(base_size=12)
+
+scores %>% 
+  filter(metric!="no_blood") %>%
+  ggplot(aes(x=param_set+round*batch_size,y=-log10(-ll/baseline*my_weight))) + 
+  facet_wrap(metric~site,scales="free_y") +
+  geom_point(aes(color=-log10(-ll/baseline*my_weight))) +
+  geom_hline(data=.%>%filter(round==0 & param_set==1),
+             aes(yintercept=-log10(-ll/baseline*my_weight)),linetype=2) +
+  geom_smooth() +
+  scale_color_fermenter(palette="Spectral")+
+  theme_minimal(base_size=12)
+
+
+scores %>% mutate(baseline=ifelse(metric=="no_blood",-1,baseline),weighted_ll=ll/baseline*my_weight) %>% arrange(param_set) %>%
+  group_by(round,param_set) %>%
+  mutate(worst_score=ll==min(ll),
+         worst_weighted_score=weighted_ll==min(weighted_ll)) %>%
+  group_by(param_set,round) %>%
+  mutate(score=sum(ll),
+            weighted_score=sum(weighted_ll)) %>%
+  ungroup() %>%
+  filter(worst_weighted_score) %>%
+  arrange(round,param_set) %>%
+  ggplot(aes(x=score,y=weighted_score)) +
+  labs(color="Worst weighted score")+
+  geom_point(aes(color=metric)) -> pweighted
+
+scores %>% mutate(baseline=ifelse(metric=="no_blood",-1,baseline),weighted_ll=ll/baseline*my_weight) %>% arrange(round) %>%
+  group_by(round,param_set) %>%
+  mutate(worst_score=ll==min(ll),
+         worst_weighted_score=weighted_ll==min(weighted_ll)) %>% 
+  group_by(param_set,round) %>%
+  mutate(score=sum(ll),
+            weighted_score=sum(weighted_ll)) %>%
+  ungroup() %>%
+  filter(worst_score) %>%
+  ggplot(aes(x=score,y=weighted_score)) +
+  labs(color="Round")+
+  scale_color_manual(values=my_pal) +
+  geom_point(aes(color=factor(round))) -> punweighted
+
+pweighted + punweighted
+
+scores %>% mutate(baseline=ifelse(metric=="no_blood",-1,baseline),weighted_ll=ll/baseline*my_weight) %>% arrange(weighted_ll) %>%
+  group_by(round,param_set) %>%
+  mutate(worst_score=ll==min(ll),
+         worst_weighted_score=weighted_ll==min(weighted_ll)) %>% 
+  group_by(param_set,round) %>%
+  mutate(score=sum(ll),
+            weighted_score=sum(weighted_ll)) %>%
+  ungroup() %>%
+  arrange(round)%>%
+  filter(metric!="no_blood")%>%
+  filter(round==0 | round==max(round)) %>%
+  ggplot(aes(color=factor(round))) +
+  geom_hline(data=.%>%filter(param_set==1&round==0),
+             linetype=2, aes(yintercept=-ll))+
+  geom_vline(data=.%>%filter(param_set==1&round==0),
+             linetype=2, aes(xintercept=-weighted_ll))+
+  geom_point(aes(x=-weighted_ll,y=-ll))+
+  facet_wrap(metric~site)+
+  scale_color_manual(values=my_pal) +
+  scale_y_log10()+scale_x_log10()+
+  xlab("<== -Weighted_LL") +ylab("<== -LL")
+
+```
+
+```{r}
+#### Summary scores over time
+
+scores %>%
+  mutate(weighted_ll=ll/baseline) %>%
+  mutate(bloodless=(metric=="no_blood" & weighted_ll>0)) -> all_scores
+
+all_scores %>% mutate(weighted_ll = ifelse(metric!="no_blood" & ll==0,10,weighted_ll)) -> all_scores
 
 
 all_scores %>% ungroup() %>%
@@ -70,21 +226,21 @@ all_scores %>% ungroup() %>%
   filter(round==0 & param_set==1) %>%
   select(site,metric,ll,baseline) -> d3
 
+all_scores %>%
+  mutate(weighted_ll=ll/baseline)%>%
+  group_by(round,param_set) %>%
+  summarize(score=sum(weighted_ll)) %>% 
+  ungroup() %>%
+  filter(!(round==0)) %>%
+  group_by(round) %>% filter(score==min(score)) %>%
+  ungroup() %>% arrange(round) %>%
+  mutate(cummin=cummin(score)) %>% 
+  filter(score==cummin) -> improvements
+
 ```
 
+
 ```{r}
-
-#### Summary scores over time
-
-all_scores %>%
-  mutate(weighted_ll=ll/baseline) %>%
-  mutate(bloodless=(metric=="no_blood" & weighted_ll>0)) -> all_scores
-
-all_scores %>% arrange(weighted_ll)
-
-all_scores %>% mutate(weighted_ll = ifelse(metric!="no_blood" & ll==0,10,weighted_ll)) -> all_scores
-
-all_scores %>% arrange(weighted_ll)
 
 #### Summary scores over time
 all_scores %>%
@@ -107,15 +263,46 @@ all_scores %>%
   geom_hline(data=.%>%filter(ps!=1) %>% filter(score==min(score)),
              aes(yintercept=score,linetype="best"))+
   geom_point(aes(color=my_pal[plotcolor]))+
-  ylab("Total Score") + xlab("#") +
+  ylab("Total Weighted Score") + xlab("#") +
   theme_minimal(base_size=16) +
   scale_color_identity() +
   scale_linetype_manual(values=c(2,1)) +
+  scale_y_log10()+
   labs(linetype=NULL)-> bp
   
   print(bp)
   ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),bp,height = 8,width=8)
 
+  
+  all_scores %>%
+  group_by(round,param_set) %>%
+  mutate(bloodless=sum(bloodless)>0) %>% 
+  ungroup() %>%
+  filter(!bloodless) %>%
+  group_by(round,param_set) %>%
+  summarize(score=sum(-ll),
+            worst=max(-ll),
+            bloodless=sum(bloodless)) %>%
+  ungroup()%>%
+  mutate(ps=round*batch_size + param_set) %>% 
+  ungroup() %>% 
+  mutate(plotcolor=round-training_batches+2) %>% arrange(-plotcolor) %>%
+  mutate(plotcolor=ifelse(plotcolor<1,1,plotcolor)) %>%
+  ggplot(aes(x=ps,y=score)) +
+  geom_hline(data=.%>%filter(ps==1),
+             aes(yintercept=score,linetype="default"))+
+  geom_hline(data=.%>%filter(ps!=1) %>% filter(score==min(score)),
+             aes(yintercept=score,linetype="best"))+
+  geom_point(aes(color=my_pal[plotcolor]))+
+  ylab("Total Score") + xlab("#") +
+  theme_minimal(base_size=16) +
+  scale_color_identity() +
+  scale_linetype_manual(values=c(2,1)) +
+  scale_y_log10()+
+  labs(linetype=NULL) -> bp2
+
+  bp / bp2
+    
 # by round
 
 all_scores %>%
@@ -138,12 +325,16 @@ all_scores %>%
   geom_hline(data=.%>%filter(ps!=1) %>% filter(score==min(score)),
              aes(yintercept=score,linetype="best"))+
   geom_point(aes(color=my_pal[plotcolor]),
+             size=3,shape=21,fill="white")+
+  geom_point(data=.%>%filter(round%in%improvements$round),
+             aes(color=my_pal[plotcolor],shape="improvement"),
              size=3)+
   ylab("Total Score") + xlab("Round #") +
   theme_minimal(base_size=16) +
   scale_color_identity() +
+  scale_y_continuous(limits=c(0,100))+
   scale_linetype_manual(values=c(2,1)) +
-  labs(linetype=NULL)-> bp
+  labs(linetype=NULL,shape=NULL)-> bp
   
   print(bp)
   ggsave(paste(score_folder,paste("scores_total_by_round.png",sep="_"),sep='/'),bp,height = 8,width=8)
@@ -191,30 +382,28 @@ all_scores %>%
   ungroup() %>%
   filter(!bloodless) %>%
   group_by(round,param_set) %>%
-  mutate(score=sum(weighted_ll),
-            worst=max(weighted_ll),
-            bloodless=sum(bloodless)) %>%
-  group_by(round) %>% filter(score==min(score)) %>%
+  mutate(score=sum(weighted_ll,na.rm = T),
+            worst=max(weighted_ll,na.rm=T),
+            bloodless=sum(bloodless,na.rm=T)) %>%
+  group_by(round) %>% filter(score==min(score,na.rm=T)) %>%
   mutate(ps=param_set+round*batch_size) %>%
   ungroup() %>% 
   mutate(plotcolor=round-training_batches+2) %>% arrange(-plotcolor) %>%
   mutate(plotcolor=ifelse(plotcolor<1,1,plotcolor)) %>%
   filter(metric!="no_blood") %>%
-  ggplot(aes(x=round,y=weighted_ll)) +
-  facet_wrap(metric~site, scales="free_y") +
-  geom_point(aes(color=my_pal[plotcolor]))+
+  ggplot(aes(x=factor(round,levels=sort(unique(all_scores$round))),y=weighted_ll)) +
+  facet_wrap(~metric) +
   geom_hline(data=.%>%filter(ps==1),
              aes(yintercept=weighted_ll,linetype="default"))+
-  geom_hline(data=.%>%filter(ps!=1) %>% filter(score==min(score)),
-             aes(yintercept=weighted_ll,linetype="best"))+
-  
+  geom_point(aes(color=site),position = "identity")+
   ylab("Score") + xlab("Round #") +
   theme_minimal(base_size=16) +
-  scale_color_identity() +
+  #scale_color_identity() +
   scale_linetype_manual(values=c(2,1)) +
   labs(linetype=NULL)-> bp
   
   print(bp)
+  
   ggsave(paste(score_folder,paste("scores_objective_by_round.png",sep="_"),sep='/'),bp,height =8,width=10)
   
 ### All points performance (sum)
@@ -271,11 +460,12 @@ all_scores %>%
   theme(legend.position="bottom",
         legend.box = "vertical") +
   scale_linetype_manual(values=c(2)) +
-  scale_fill_brewer(palette="Set2") -> bp2
+  scale_fill_manual(values=c(RColorBrewer::brewer.pal(8,"Dark2"),
+                             RColorBrewer::brewer.pal(8,"Accent"))) -> bp2
   
   
-library(patchwork)
   bp1 / bp2  -> bp
+  bp
   
   ggsave(paste(score_folder,paste("scores_best_sets.png",sep="_"),sep='/'),bp,height =12,width=16)
 
@@ -315,14 +505,15 @@ library(patchwork)
     theme_minimal(base_size=14) +
     geom_point(aes(color=metric))  +
     facet_wrap(~site) +
-    theme(legend.position = c(1,0),
+    theme(legend.position = "right",
           legend.justification.inside=c(1,0)) +
     labs(color=NULL) +
     #scale_x_continuous(breaks=seq(0,10000,2000)) +
     scale_x_log10() + 
-    scale_y_log10()+
+    scale_y_log10() +
     scale_color_brewer(palette="Set1")+
     xlab("Total Score") + ylab("Worst Objective Score")
+
 ```
 
 
@@ -378,8 +569,33 @@ for(i in unique(track_sets$best)){
     theme(legend.position="bottom") -> bp
   
   print(bp)
-  ggsave(paste("output",exp,"performance",paste(i,"performance.png",sep="_"),sep='/'),bp,height = 8,width=8)
+  ggsave(paste("output",exp,"performance",paste(i,"performance.png",sep="_"),sep='/'),bp,height = 8,width=12)
 }
+
+
+track_sets %>% 
+  filter(metric!="no_blood") %>%
+  #filter((round==0&param_set==1) | (round==max(round))) %>%
+  arrange(ll2) %>% 
+  ggplot(aes(x=interaction(param_set,round),y=log10(ll2))) +
+  geom_bar(stat="identity",position="stack",
+           aes(fill=metric,group=interaction(site,metric,ifelse(ll2>1,-ll2,ll2)),
+               color=ifelse(ll2>1,"worse","better"))) +
+  labs(alpha=NULL,color=NULL) +
+  scale_color_manual(values=c("black","white"))
+
+
+track_sets %>% 
+  filter(metric!="no_blood") %>%
+  #filter((round==0&param_set==1) | (round==max(round))) %>%
+  arrange(ll2) %>% 
+  ggplot(aes(x=interaction(param_set,round),y=ll2)) +
+  geom_bar(stat="identity",position="stack",color="white",
+           aes(fill=metric,group=interaction(site,metric,ll2))) +
+  labs(alpha=NULL,color=NULL) +
+  scale_color_manual(values=c("black","white"))
+
+
 ```
 
 
@@ -446,12 +662,12 @@ tp %>%
              aes(y=median,shape=transformation),fill="white")+
   geom_point(data=.%>% filter(round==0 & param_set==1),
              aes(y=as.numeric(emod_value),color="default",shape=transformation),fill="white")+
+  geom_point(data=.%>% filter(interaction(round,param_set)%in%interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric(emod_value),color="improvement",shape=transformation),fill="white")+
   geom_point(data=.%>% filter(round==best_round & param_set==best_ps),
              aes(y=as.numeric(emod_value),color="best",shape=transformation),fill="white")+
- 
+  scale_color_brewer(palette="Set1",direction = -1) +
   scale_shape_manual(values=c(16,21))+
-  scale_color_brewer(palette="Set1") +
-
   theme_minimal(base_size=14) +
   labs(color=NULL) + ylab("EMOD parameter value") + xlab("Batch #") -> pp
   pp
@@ -470,10 +686,12 @@ tp %>%
              aes(y=median), size=1)+
     geom_point(data=.%>% filter(round==0 & param_set==1),
              aes(y=as.numeric(unit_value),color="default"))+
+  geom_point(data=.%>% filter(interaction(round,param_set)%in%interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric(unit_value),color="improvement"))+  
   geom_point(data=.%>% filter(round==best_round & param_set==best_ps),
              aes(y=as.numeric(unit_value),color="best"))+
   scale_y_continuous(limits=c(0,1))+
-  scale_color_brewer(palette="Set1") +
+  scale_color_brewer(palette="Set1",direction = -1) +
   theme_minimal(base_size=14) +
   labs(color=NULL) + ylab("Unit parameter value") + xlab("Batch #") -> pp
   pp
@@ -489,14 +707,21 @@ tp %>% ungroup() %>%
   theme_minimal(base_size=12) +
   facet_wrap(~factor(parameter,levels=param_levels),ncol=3) +
   xlab("") + ylab("Unit parameter value") +
-  geom_point() + 
+  geom_point(aes(color=factor(round))) + 
   geom_point(data=.%>%filter(param_set==1 & round==0),
-             aes(color="default")) +
+             aes(shape="default")) +
   geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
-             aes(color="best")) +
-  labs(color=NULL) +
-  theme(legend.position=c(0.9,0),
-        legend.justification=c(1,0.2))
+             aes(shape="best"),fill="white",color="black") +
+  labs(color=NULL,shape=NULL,fill=NULL) +
+  theme(legend.position=c(1,0),
+        legend.justification=c(1,0),
+        legend.box="horizontal") +
+  guides(color="none")+
+  scale_shape_manual(values=c(21,16))+
+  scale_color_manual(values=c(my_pal[seq(1,max(tp$round)+1)],"black","red")) -> pp
+  pp
+  ggsave(paste(parameters_folder,"unit_values_all.png",sep='/'),pp,height = 12,width=10)
+
 ```
 
 
@@ -523,19 +748,30 @@ for(i in seq(1,length(parameters),2)){
     rbind.data.frame(df_b) %>%
     mutate(param_set=param_set+round*batch_size) %>% arrange(-param_set) %>%
     pivot_wider(names_from = parameter, values_from = unit_value, values_fn = mean) %>%
-    arrange(-param_set) %>%
+    arrange(round) %>%
     ggplot(aes(x=!!sym(parameters[i]),
                y=!!sym(parameters[j]))) +
     facet_wrap(~metric) +
     theme_minimal(base_size=12)+
-    geom_point(aes(color=log10(metric_score))) +
+    geom_point(aes(color=log10(metric_score),
+                   alpha=(round==max(round)))) +
+    geom_point(data=.%>%filter(param_set==best_ps+best_round*batch_size),
+               aes(shape="best"),color="black") +
+    geom_point(data=.%>%filter(param_set==1),
+              aes(shape="default"),color="black") +
+    geom_line(data=.%>%filter(param_set==1 | param_set==best_ps+best_round*batch_size),color="black",
+              arrow=arrow(ends = "first",length = unit(0.1,"in")))+
     scale_color_distiller(palette="Spectral") +
-    labs(color="Log Score") +
+    labs(color="Log Score",shape=NULL,alpha=NULL) +
+    guides(alpha="none")+
+    scale_shape_manual(values=c(21,16))+
     theme(legend.position=c(0.9,0),
           legend.justification = c(1,0),
           legend.direction = "horizontal")-> pp
   
-  print(pp)
+  #print(pp)
+  ggsave(paste(paste(parameters_folder,"search_space",paste("separate",parameters[i],"x",parameters[j],sep="_"),sep="/"),".png",sep=''),pp,
+         height=8,width=10)
 }
 
 
@@ -548,15 +784,24 @@ for(i in seq(1,length(parameters),2)){
     rbind.data.frame(df_b) %>%
     mutate(param_set=param_set+round*batch_size) %>% arrange(-param_set) %>%
     pivot_wider(names_from = parameter, values_from = unit_value, values_fn = mean) %>%
-    arrange(-param_set) %>%
+    arrange(round) %>%
     ggplot(aes(x=!!sym(parameters[i]),
                y=!!sym(parameters[j]))) +
     theme_minimal(base_size=16)+
-    geom_point(aes(color=log10(total_score))) +
+    geom_point(aes(color=log10(total_score),
+                   alpha=round==max(round))) +
+    geom_point(data=.%>%filter(param_set==1),
+               aes(shape="default"),color="black") +
+    geom_point(data=.%>%filter(param_set==best_ps+best_round*batch_size),
+               aes(shape="best"),color="black") +
+    geom_line(data=.%>%filter(param_set==1 | param_set==best_ps+best_round*batch_size),color="black",
+              arrow=arrow(ends = "first",length = unit(0.1,"in")))+
     scale_color_distiller(palette="Spectral") +
-    labs(color="Log Score") -> pp
-  
-  ggsave(paste(paste(parameters_folder,"search_space",paste(parameters[i],"x",parameters[j],sep="_"),sep="/"),".png",sep=''),
+    labs(color="Log Score",shape=NULL,alpha=NULL) +
+    guides(alpha="none")+
+    scale_shape_manual(values=c(21,16))-> pp
+  #print(pp)
+  ggsave(paste(paste(parameters_folder,"search_space",paste("total",parameters[i],"x",parameters[j],sep="_"),sep="/"),".png",sep=''),pp,
          height=6,width=6)
 }
 
@@ -602,9 +847,9 @@ inc_ref %>% filter(Site %in% severe_incidence_sites) -> inc_ref
 for(s in unique(inc_df$site)){
   inc_df %>%
   filter(site==s) %>%
-  filter((param_set==1 & round==0) | round==max(round)) %>%
+  filter(round==max(round)) %>%
   filter(Age %in% inc_ref$Age) %>%
-  ggplot(aes(x=Age,y=Severe.Incidence)) +
+  ggplot(aes(x=Age,y=Severe.Incidence*1000)) +
   ggtitle(toupper(s))+
   theme_minimal(base_size=16) +
   geom_line(aes(group=interaction(round,param_set),
@@ -612,12 +857,12 @@ for(s in unique(inc_df$site)){
                 color=factor(param_set),
             linewidth=round==max(round),
             alpha=round==max(round))) +
-  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence,
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence*1000,
                                                 shape="reference",size=n)) +
   #scale_color_identity() +
-  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  #scale_y_continuous(minor_breaks = seq(1,20,1))+
   scale_x_log10()+
-  labs(color=NULL,shape=NULL,size="Population") + ylab("Incidence per person per year") +
+  labs(color=NULL,shape=NULL,size="Population") + ylab("Annual severe cases (per 1,000)") +
     guides(linewidth="none")+
   theme(legend.position="bottom") +
   scale_alpha_manual(values=c(1,1)) +
@@ -625,24 +870,25 @@ for(s in unique(inc_df$site)){
   scale_size_continuous()+
   guides(alpha="none",shape="none") -> pp
   print(pp)
-  ggsave(paste(objectives_folder,paste(s,"incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
+  ggsave(paste(objectives_folder,paste(s,"severe_incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
 
   inc_df %>%
   filter(site==s) %>%
   filter(Age %in% inc_ref$Age) %>%
-  ggplot(aes(x=Age,y=Severe.Incidence)) +
+  filter((round==0 & param_set==1)|(round==max(round))) %>%
+  ggplot(aes(x=Age,y=Severe.Incidence*1000)) +
   ggtitle(toupper(s))+
   theme_minimal(base_size=16) +
   geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
             linewidth=round==max(round),
             alpha=round==max(round))) +
-  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence,
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=Age,y=absolute_severe_incidence*1000,
                                                 shape="reference",size=n)) +
   scale_color_identity() +
-  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  #scale_y_continuous(minor_breaks = seq(1,20,1))+
   scale_x_log10()+
   labs(linetype=NULL,color=NULL,shape=NULL,size="Population") + 
-  ylab("Incidence per person per year") +
+  ylab("Annual severe cases (per 1,000)") +
   guides(linewidth="none",alpha="none",shape="none")+
   theme(legend.position="bottom") +
   scale_alpha_manual(values=c(1,1)) +
@@ -650,8 +896,10 @@ for(s in unique(inc_df$site)){
   scale_size_continuous()+
   scale_linetype_manual(values=c(2,rep(1,length(unique(inc_df$round)))))-> pp
   print(pp)
-  ggsave(paste(objectives_folder,paste(s,"incidence.png",sep="_"),sep='/'),pp,height = 6,width=6)
+  ggsave(paste(objectives_folder,paste(s,"severe_incidence.png",sep="_"),sep='/'),pp,height = 6,width=6)
 }
+
+
 
 remove(inc_df)
 
@@ -724,7 +972,7 @@ namawala_prev_df %>%
   filter((round==0 & param_set==1) | round==max(round)) %>%
   ggplot(aes(x=Age,y=Prevalence)) +
   theme_bw(base_size=16) +
-  geom_line(aes(group=round,color=ifelse(round<training_batches,"gray", my_pal[round+1]),
+  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray", my_pal[round+1]),
                 linewidth=round==max(round))) + 
   geom_point(data=namawala_prev_ref,
              aes(x=agebin,y=prevalence,
@@ -735,8 +983,9 @@ namawala_prev_df %>%
   ggtitle("NAMAWALA_2001") +
   scale_color_identity() +
   theme_minimal(base_size=16) +
+  scale_y_continuous(limits=c(0,1))+
   scale_x_continuous(breaks = unique(namawala_prev_df$Age),minor_breaks = NULL) ->pp
-  
+  pp
   ggsave(paste(objectives_folder,paste("Namawala_prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 remove(namawala_prev_df)
@@ -773,7 +1022,7 @@ garki_prev_df %>%
   ggplot(aes(x=agebin, y=prevalence)) +
   facet_grid(site~month.abb[month]) +
   geom_line(aes(group=interaction(round,param_set,lex.order = T),
-                color=ifelse(round<training_batches,"gray", my_pal[round+1])),size=1.5) +
+                color=ifelse(round<training_batches,"gray", my_pal[round+1])),linewidth=1.2) +
   geom_point(data=garki_prev_ref %>% mutate(site=tolower(Site)),
              aes(size=total_sampled))+
   theme_minimal(base_size=16) +
@@ -781,8 +1030,8 @@ garki_prev_df %>%
   scale_size_continuous(breaks=seq(0,1000,50)) +
   theme(legend.position="bottom") +
   labs(size="sample size") -> pp
-  
-  ggsave(paste(objectives_folder,paste("Garki_prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
+  pp  
+ggsave(paste(objectives_folder,paste("Garki_prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 
 for(r in unique(garki_prev_df$round)){
@@ -808,7 +1057,46 @@ for(r in unique(garki_prev_df$round)){
   ggsave(paste(objectives_folder,paste("Garki_prevalence.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
   }
+
+  garki_prev_df %>%
+    filter(Pop>0) %>%
+    filter(agebin %in% garki_prev_ref$agebin) %>%
+    filter(month %in% garki_prev_ref$month) %>%
+    filter(param_set==best_ps & round==best_round) %>% arrange(agebin,month) %>%
+    group_by(Site,Run_Number,param_set,round,agebin,month) %>%
+    summarize(PfPR=mean(PfPR)) %>%
+  ggplot(aes(y=month.name[month],x=factor(agebin)))+
+  facet_wrap(~Site) +
+    geom_point(aes(size=PfPR,color=interaction(round,param_set))) +
+    scale_size_continuous(range = c(1,8)) +
+    geom_point(data=garki_prev_ref %>% mutate(Site=tolower(Site)), aes(size=prevalence),
+               shape=21,fill="transparent")
   
+  
+  garki_prev_df %>%
+    filter(Pop>0) %>%
+    filter(agebin %in% garki_prev_ref$agebin) %>%
+    filter(month %in% garki_prev_ref$month) %>%
+    filter((round==0 & param_set==1) | (param_set==best_ps & round==best_round)) %>% 
+    arrange(agebin,month) %>%
+    group_by(Site,Run_Number,param_set,round,agebin,month) %>%
+    summarize(PfPR=mean(PfPR)) %>%
+    ungroup() %>%
+    left_join(garki_prev_ref %>% mutate(Site=tolower(Site))) %>% 
+    gather("source","prevalence",c("PfPR","prevalence")) %>% 
+    mutate(source=ifelse(source=="prevalence","data",paste("sim ",round,'.',
+                                                           param_set,sep=''))) %>%
+    ggplot(aes(x=interaction(agebin),
+               y=interaction(source))) + 
+    theme_minimal(base_size=14)+
+    geom_tile(color="white",
+              aes(fill=prevalence)) +
+    #facet_wrap(Site~month.name[month],scales="free")+
+    facet_grid(Site~month.name[month])+
+    scale_fill_distiller(palette="RdBu") +
+    ylab("") + xlab("Age") + labs(fill="PfPR")+
+    coord_fixed() 
+    
 remove(garki_prev_df)
 ```
 
@@ -953,7 +1241,7 @@ for(s in unique(dens_df$Site)){
       ungroup() %>%
       ggplot(aes(x=densitybin,y=asexual_par_dens_freq)) +
       facet_grid(agebin~month.abb[month],scales="free") +
-      geom_line(aes(group=round,
+      geom_line(aes(group=interaction(round,param_set),
                      color=my_pal[as.integer(round)+1]))+
       geom_point(data=ref_dens)+
       scale_x_log10(breaks=unique(ref_dens$densitybin)) +
@@ -961,7 +1249,7 @@ for(s in unique(dens_df$Site)){
       theme_minimal(base_size=16) +
       theme(axis.text.x=element_text(angle=45,hjust=1)) +
       xlab("Asexual Parasite Density") + ylab("Frequency") -> pp
-      
+      print(pp)
       ggsave(paste(objectives_folder,paste(s,"asexual_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
      dens_df %>%
@@ -975,7 +1263,7 @@ for(s in unique(dens_df$Site)){
       ungroup() %>%
       ggplot(aes(x=densitybin,y=gametocyte_dens_freq)) +
       facet_grid(agebin~month.abb[month],scales="free") +
-      geom_line(aes(group=round,
+      geom_line(aes(group=interaction(round,param_set),
                      color=my_pal[as.integer(round)+1]))+
       geom_point(data=ref_dens)+
       scale_x_log10(breaks=unique(ref_dens$densitybin)) +
@@ -984,7 +1272,7 @@ for(s in unique(dens_df$Site)){
       ggtitle(NULL,s)+
       theme(axis.text.x=element_text(angle=45,hjust=1)) +
       xlab("Gametocyte Density") + ylab("Frequency") -> pp
-      
+      print(pp)
       ggsave(paste(objectives_folder,paste(s,"gametocyte_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
     
   } else if(s=="laye_2007"){
@@ -1003,7 +1291,7 @@ for(s in unique(dens_df$Site)){
       ungroup() %>%
       ggplot(aes(x=densitybin+5,y=asexual_par_dens_freq)) +
       facet_grid(agebin~month.abb[month],scales="free") +
-      geom_line(aes(group=round,
+      geom_line(aes(group=interaction(round,param_set),
                      color=my_pal[as.integer(round)+1]),
                 linewidth=1.5)+
       geom_point(data=ref_dens,
@@ -1013,7 +1301,8 @@ for(s in unique(dens_df$Site)){
       theme_minimal(base_size=16) +
       theme(axis.text.x=element_text(angle=45,hjust=1)) +
       xlab("Asexual Parasite Density") + ylab("Frequency") +
-      scale_size_continuous(range = c(0.5,3))
+      scale_size_continuous(range = c(0.5,3)) -> pp
+     print(pp)
      ggsave(paste(objectives_folder,paste(s,"asexual_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
      
      dens_df %>%
@@ -1027,7 +1316,7 @@ for(s in unique(dens_df$Site)){
       ungroup() %>%
       ggplot(aes(x=densitybin+5,y=gametocyte_dens_freq)) +
       facet_grid(agebin~month.abb[month],scales="free") +
-      geom_line(aes(group=round,
+      geom_line(aes(group=interaction(round,param_set),
                      color=my_pal[as.integer(round)+1]),
                 linewidth=1.5)+
       geom_point(data=ref_dens,
@@ -1038,8 +1327,8 @@ for(s in unique(dens_df$Site)){
       theme(axis.text.x=element_text(angle=45,hjust=1)) +
       xlab("Gametocyte Density") + ylab("Frequency") +
       scale_size_continuous(range = c(0.5,3)) +
-      theme(legend.position = "none")
-     
+      theme(legend.position = "none") -> pp
+     print(pp)
      ggsave(paste(objectives_folder,paste(s,"gametocyte_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
     
   } else {
@@ -1071,7 +1360,7 @@ for(s in unique(dens_df$Site)){
       xlab("Asexual Parasite Density") + ylab("Frequency") +
       scale_size_continuous(range = c(0.5,3)) +
       theme(legend.position = "none") -> pp
-       
+       print(pp)
       ggsave(paste(objectives_folder,paste(ds,"asexual_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
       
       dens_df %>%
@@ -1098,6 +1387,7 @@ for(s in unique(dens_df$Site)){
       xlab("Gametocyte Density") + ylab("Frequency") +
       scale_size_continuous(range = c(0.5,3)) +
       theme(legend.position = "none") -> pp
+      print(pp)
       ggsave(paste(objectives_folder,paste(ds,"gameotcyte_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
      }
   }
@@ -1190,7 +1480,8 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
         facet_wrap(interaction(month.name[month],Site,sep=" in ")~agebin) +
         
         #scale_x_log10(breaks=unique(inf_df$densitybin)) +
-        geom_point(aes(color=factor(paste("Round",round,"#",param_set)))) +
+        geom_point(aes(color=factor(paste("Round",round,"#",param_set)),
+                       alpha=0.3)) +
         geom_point(data=inf_ref %>% filter(site==s & agebin!=0.5)%>%
                      #filter(densitybin>0)%>%
                      filter(freq_frac_infect>0)%>%
@@ -1210,6 +1501,114 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
         labs(color=NULL, size=NULL,shape=NULL) -> pp
       pp 
       ggsave(paste(objectives_folder,paste(s,"infectiousness.png",sep="_"),sep='/'),pp,height = 10,width=10)
+}
+
+
+for(i in 1:nrow(ddmp)){
+  s=ddmp$site[i]
+  r=ddmp$round[i]
+  ps=ddmp$param_set[i]
+  inf_df%>%
+    rename(site=Site) %>%
+    filter(site==s) %>%
+    filter(round==r & param_set==ps) %>%
+    ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin)))+
+    facet_grid(agebin~paste(month.name[month],2007))+
+    geom_tile(aes(fill=freq_frac_infect),
+              color="white") +
+    geom_point(data=inf_ref,aes(fill=freq_frac_infect,
+                                y=factor(fraction_infected_bin)),
+               shape=21,color="white")+
+    theme_minimal(base_size=14) +
+    theme(axis.text.x=element_text(angle=-45,vjust=0,hjust=0)) +
+    #scale_color_distiller(palette="Spectral") +
+    scale_fill_distiller(palette="Spectral") +
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
+  print(p)
+    ggsave(paste(objectives_folder,paste(s,"infectiousness_plot1",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
+
+  
+  inf_df %>%
+    rename(site=Site) %>%
+    left_join(inf_ref %>% rename(ref_frac=freq_frac_infect, 
+                                 infectiousness_bin=fraction_infected_bin))%>%
+    filter(site==s) %>%
+    filter(round==r & param_set==ps) %>%    
+    ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin)))+
+    facet_grid(agebin~paste(month.name[month],2007)) +
+    geom_tile(data=.%>%filter(freq_frac_infect>0 | ref_frac>0),
+              aes(fill=(freq_frac_infect-ref_frac)),
+              color="white") +
+    geom_point(data=.%>%filter(ref_frac>0),
+               aes(size=ref_frac)) +
+    theme_minimal(base_size=14) +
+    theme(axis.text.x=element_text(angle=-45,vjust=0,hjust=0)) +
+    #scale_color_distiller(palette="Spectral") +
+    scale_fill_distiller(palette="RdGy") +
+    labs(fill="Residual",size="Data") +
+    ylab("% Infectiousness to Mosquitos") +
+    xlab("Gametocyte Density")+
+    scale_size_continuous(range = c(0,2)) +
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
+  print(p)
+    ggsave(paste(objectives_folder,paste(s,"infectiousness_plot2",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
+
+  
+  inf_df %>%
+    rename(site=Site) %>%
+    filter(site==s) %>%
+    filter(round==r & param_set==ps) %>%
+    left_join(inf_ref %>% rename(ref_frac=freq_frac_infect, 
+                                 infectiousness_bin=fraction_infected_bin))%>%
+    ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin)))+
+    facet_grid(agebin~paste(month.name[month],2007)) +
+    geom_tile(data=.%>%filter(freq_frac_infect>0 | ref_frac>0),
+              aes(fill=freq_frac_infect,color="Simulation")) +
+    geom_point(data=.%>%filter(ref_frac>0),
+               aes(fill=ref_frac,size=ref_frac,shape="Reference")) +
+    theme_minimal(base_size=14) +
+    theme(axis.text.x=element_text(angle=-45,vjust=0,hjust=0)) +
+    scale_color_manual(values=c("white"))    +
+    scale_fill_distiller(palette="Spectral") +
+    scale_shape_manual(values=c(21))+
+    labs(fill="Frequency",shape=NULL,color=NULL) +
+    guides(size="none",fill=guide_legend(order=0))+
+    ylab("% Infectiousness to Mosquitos") +
+    xlab("Gametocyte Density")+
+    scale_size_continuous(range = c(0,2)) +
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
+    ggsave(paste(objectives_folder,paste(s,"infectiousness_plot3",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
+
+  print(p)
+  
+  
+  
+  inf_df %>%
+    rename(site=Site) %>%
+    filter(site==s) %>%
+    filter(round==r & param_set==ps) %>%
+    left_join(inf_ref %>% rename(ref_frac=freq_frac_infect, 
+                                 infectiousness_bin=fraction_infected_bin))%>%
+    ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin)))+
+    facet_grid(agebin~paste(month.name[month],2007)) +
+    geom_point(data=.%>%filter(freq_frac_infect>0),
+               aes(size=freq_frac_infect,color="simulation")) +
+    geom_point(data=.%>%filter(ref_frac>0),
+               aes(size=ref_frac,shape="Reference"),fill="transparent") +
+    theme_minimal(base_size=14) +
+    theme(axis.text.x=element_text(angle=-45,vjust=0,hjust=0)) +
+    #scale_color_distiller(palette="Spectral") +
+    scale_fill_brewer(palette="Spectral") +
+    labs(color=NULL,shape=NULL,size="Frequency") +
+    ylab("% Infectiousness to Mosquitos") +
+    xlab("Gametocyte Density")+
+    scale_size_continuous(range = c(0,2)) +
+    scale_shape_manual(values=c(21,21))+
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) +
+    guides(size=guide_legend(order=2))-> p
+  print(p)
+    ggsave(paste(objectives_folder,paste(s,"infectiousness_plot4",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
+
 }
 
 remove(inf_df)
@@ -1305,5 +1704,22 @@ if(length(ls_list)>1){
   ggsave(paste(GP_folder,"average_ranked_lengthscales.png",sep="/"),width=10,height=6)
     
 }
+```
+
+
+
+```{r}
+all_scores %>%
+  #filter(round==0) %>%
+  ggplot() +
+  facet_wrap(~metric,scales="free_y") +
+  geom_hline(yintercept=1, linetype=2)+
+  geom_boxplot(aes(x=factor(site),y=weighted_ll,group=factor(site))) +
+  geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
+             color="red",
+             aes(x=factor(site),y=weighted_ll)) +
+  coord_flip() +
+  scale_y_log10() +
+  xlab("") + ylab("wieghted score")
 ```
 

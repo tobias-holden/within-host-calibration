@@ -60,12 +60,15 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
     # subset simulation to months in reference df
     sim_df = sim_df[sim_df['month'].isin(ref_months)]
     sim_df = sim_df[sim_df['agebin'].isin(ref_ages)]
+    #print(sim_df[(sim_df['param_set'] == 7) & (sim_df['month']==7)])
+
     inf_df = sim_df
     
     inf_df = (inf_df[inf_df['month'].isin(ref_df['month'].unique()) & inf_df['agebin'].isin(ref_df['agebin'].unique())])
 
-    inf_df = inf_df[inf_df['Pop'] == inf_df['Pop'].max()]
-    
+    #inf_df = inf_df[inf_df['Pop'] == inf_df['Pop'].max()]
+    #print(inf_df[(inf_df['param_set'] == 7) & (inf_df['month']==7)])
+
     inf_df['counts'] = inf_df['infectiousness_bin_freq'] * inf_df['Pop']
     
     inf_df = inf_df.groupby(['Site', 'param_set', 'month', 'agebin', 'densitybin', 'infectiousness_bin'], as_index=False).agg({'counts': 'sum'})
@@ -115,9 +118,9 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
     #print(sim_df_by_param_set.columns)
     #fixme - Note we are dropping nans in both reference and simulation.  Dropping nans in simulation might not be best
     combined_df = pd.merge(sim_df, ref_df, how='outer')#.dropna(subset=["reference"])#, "simulation"])
-    #print(combined_df)
+    #print(combined_df[combined_df['param_set']==7][["param_set","month","agebin","densitybin","fraction_infected_bin","simulation","reference"]])
     combined_df['metric'] = 'infectiousness'
-    #print(combined_df)
+    #print(combined_df[(combined_df['param_set'] == 7) & (combined_df['month']==7)])
     #fixme - Fudge to correct for sim infectiousness values of 1s and 0s (often because of small denominator)
     #fixme - which wreak havoc in likelihoods.  So instead set a range from [0.001,0.999], given typical population size
     #fixme - of 1000 individuals.
@@ -130,10 +133,11 @@ def prepare_infectiousness_comparison_single_site(sim_df, site):
             return x
 
     combined_df.loc[np.isnan(combined_df['simulation']),'simulation'] = 0.0
+    #print(combined_df[(combined_df['param_set'] == 7) & (combined_df['month']==7)])
     combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
     
-    #print(combined_df)
-    #print(combined_df)
+    #print(combined_df[combined_df['param_set']==7][["param_set","month","agebin","densitybin","fraction_infected_bin","simulation","reference"]])
+    #print(combined_df[(combined_df['param_set'] == 7) & (combined_df['month']==7)])
     return combined_df
 
 
@@ -291,7 +295,28 @@ def plot_infectiousness_comparison_single_site(site,
 def plot_infectiousness_comparison_all_sites(param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
     for s in infectiousness_sites:
         plot_infectiousness_comparison_single_site(s, param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir)
+
+
+def compute_infectiousness_LL_for_sim_site(comb_df,numOf_param_sets=100):
+    
+    #print(sim_df)
+    combined_df = comb_df
+    site=comb_df['Site'][1]
+    #print(cc.to_string())
+    ll_by_param_set = combined_df.groupby(["param_set","month","agebin"]) \
+        .apply(compute_infectiousness_likelihood) \
+        .reset_index() \
+        .rename(columns={0: "ll_spec"})
         
+    ll_by_param_set, missing_param_sets = identify_missing_parameter_sets(ll_by_param_set, numOf_param_sets)
+    
+    ll_by_param_set["metric"] = "infectiousness"
+    ll_by_param_set["site"] = site
+    
+    
+    if len(missing_param_sets) > 0:
+        print(f'Warning {site} is missing param_sets {missing_param_sets} for infectiousness')
+    return ll_by_param_set        
 
 if __name__=="__main__":
     # cc=compute_infectiousness_LL_by_site(site="laye_2007",numOf_param_sets=1000)
@@ -302,8 +327,12 @@ if __name__=="__main__":
     #          .reset_index() \
     #          .rename(columns={"ll_spec":"ll"})
     # print(cc.sort_values(by=['ll']).to_string())
-    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/test_241027/LF_0/SO/laye_2007/infectiousness_by_age_density_month.csv"))
-    print(prepare_infectiousness_comparison_single_site(sim_df,'laye_2007'))
+    pd.set_option('display.max_columns', None)
+    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/test_241028/LF_0/SO/dapelogo_2007/infectiousness_by_age_density_month.csv"))
+    print(sim_df[(sim_df['param_set'] == 22) & (sim_df['month']==7)])
+    # x=prepare_infectiousness_comparison_single_site(sim_df,'dapelogo_2007')
+    # y=compute_infectiousness_LL_for_sim_site(x,100)
+    
     # 
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[92])
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[1,532],

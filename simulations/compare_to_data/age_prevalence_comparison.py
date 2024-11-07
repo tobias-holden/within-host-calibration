@@ -186,7 +186,7 @@ def prepare_prevalence_comparison_single_site(sim_df, site):
         else:
             return x
 
-    #combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
+    combined_df['simulation'] = combined_df['simulation'].apply(_correct_extremes)
     #print(combined_df)
     
     return combined_df
@@ -210,7 +210,7 @@ def compute_prevalence_likelihood(combined_df):
     #fixme 230328: naively assume every observation is independent.
     # Likelihood of each observation is likelihood of seeing reference data if simulation is "reality"
     binom_ll = np.vectorize(binom.logpmf) # probability mass function of binomial distribution
-
+    
     combined_df["ll"] = binom_ll(combined_df["num_pos"],
                                  combined_df["total_sampled"],
                                  combined_df["simulation"])
@@ -250,7 +250,7 @@ def compute_prev_LL_by_site(site, numOf_param_sets):
     #print(combined_df)
     
     ll_by_param_set = combined_df.groupby("param_set",group_keys=False) \
-        .apply(compute_prevalence_likelihood2) \
+        .apply(compute_prevalence_likelihood) \
         .reset_index() \
         .rename(columns={0: "ll"})
     

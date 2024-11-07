@@ -15,6 +15,7 @@ from calibration_common.batch_generators.batch_generator_array import BatchGener
 
 from calibration_common.emulators.GP import ExactGP, ExactMultiTaskGP
 from calibration_common.bo import BO
+from calibration_common.post_calibration_analysis import post_calibration_analysis
 
 from my_func import my_func as myFunc
 from compare_to_data.run_full_comparison import plot_all_comparisons
@@ -26,11 +27,10 @@ import manifest as manifest
 import torch
 from torch import tensor
 
-from post_calibration_analysis import post_calibration_analysis
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_241028_small"
+exp_label = "test_241105"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -82,9 +82,11 @@ class Problem:
         param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
-
+        # if self.n == 0:
+        #     Y0 = compute_LL_across_all_sites_and_metrics(numOf_param_sets=100)
+        # else:
+        #     Y0 = myFunc(X,wdir)
         Y0 = myFunc(X,wdir)
-        
         Y1 = Y0
         
         if self.n == 0:
@@ -96,9 +98,9 @@ class Problem:
             score_df=pd.concat([score_df,Y0])
             score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
-        # Apply weights
+        ## Apply weights
         Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
-        
+        #Y1['ll'] = Y1['ll']
         # Temporary fix to recognize that post-weighting zero (0) LL is bad
         Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10
         Y1.loc[(Y1['metric'] == 'incidence') & (Y1['ll'] == 0), 'll'] = -10
@@ -171,7 +173,7 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            clean_logs()
+            #clean_logs()
         else: 
             if max(links.values())[0] > self.ymax:
                 self.ymax = max(links.values()) #weighted_lf  
@@ -188,7 +190,7 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            clean_logs()
+            #clean_logs()
         return X_out, Y_out
 
 
@@ -238,6 +240,24 @@ team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.755555555555,  # RBC Destruction Multiplier (3.9)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
 
+team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10) 
+                       0.166666666667,  # Gametocyte sex ratio (0.2) 
+                       0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+                       0.394437557888,  # Base gametocyte production rate (0.0615)
+                       0.50171665944,   # Falciparum MSP variants (32)
+                       0.0750750750751, # Falciparum nonspecific types (76)
+                       0.704339142192,  # Falciparum PfEMP1 variants (1070)
+                       0.28653200892,   # Fever IRBC kill rate (1.4)
+                       0.584444444444,  # Gametocyte stage survival rate (0.5886)
+                       0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+                       0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
+                       0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
+                       0.492373751573,  # Pyrogenic threshold (15000)
+                       1.0,            # Max Individual Infections (20)
+                       0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
+                       0.755555555555,  # RBC Destruction Multiplier (3.9)
+                       0.433677]        # Cytokine Gametocyte Inactivation (0.02)
+
 params_241013 = [0.063819259,
                 0.311834632,
                 0.265195263,
@@ -258,7 +278,9 @@ params_241013 = [0.063819259,
 
 bo.initRandom(init_size,
               n_batches = init_batches,
-              Xpriors = [team_default_params,params_241013])
+              Xpriors = [team_default_params,
+                         team_default_params20,
+                         params_241013])
 
 # Run the optimization loop
 bo.run()
@@ -267,8 +289,9 @@ bo.run()
 
 # Run analysis
 
-# post_calibration_analysis(experiment=exp_label,
-#                           length_scales_by_objective=True,      # Fit single-task GP per site-metric
-#                           length_scales_plot=True,              # Plot length-scales from calibration
-#                           prediction_plot=True,exclude_count=0, # Plot predictions, starting @ exclude_count
-#                           timer_plot=True)                      # Plot emulator and acquisition timing
+post_calibration_analysis(experiment=exp_label,
+                          length_scales_by_objective=True,              # Fit single-task GP per within-host site-metric
+                          length_scales_by_environment_objective=False, # per environment_calibration score
+                          length_scales_plot=True,                      # Plot length-scales from calibration
+                          prediction_plot=True,exclude_count=0,         # Plot predictions, starting @ exclude_count
+                          timer_plot=True)                              # Plot emulator and acquisition timing
