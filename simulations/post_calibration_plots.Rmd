@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "test_241105"
+exp <- "test_241107_unweighted"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
@@ -50,7 +50,148 @@ pal_df <-data.frame(color=my_pal)
 pal_df$id <- 0:(nrow(pal_df)-1)
 ```
 
-Load scores
+### Datasets
+
+```{r}
+# Raw scores
+scores <- read.csv(paste("output",exp,'all_LL.csv',sep='/'))
+# Identify parameter sets with missing or NA scores
+scores %>% group_by(param_set,round) %>% summarize(missing=sum(is.na(ll))) %>% filter(missing>0) -> unscored
+# Filter to only scored parameter sets
+scores <- scores %>% filter(!(interaction(round,param_set) %in% interaction(unscored$round,unscored$param_set)))
+# Grouped by total score (unweighted)
+total_scores <- scores %>% group_by(param_set,round) %>% summarize(total_score=sum(ll))
+# Best set
+best_ps = total_scores$param_set[total_scores$total_score==max(total_scores$total_score[!(total_scores$round==0 & total_scores$param_set==1)],na.rm=T)]
+best_round=total_scores$round[total_scores$total_score==max(total_scores$total_score[!(total_scores$round==0 & total_scores$param_set==1)],na.rm=T)]
+# Grouped by objective scores (unweighted)
+objective_scores <- scores %>% group_by(param_set,round,metric) %>%
+  summarize(objective_score=sum(ll))
+
+total_scores %>%
+  #filter(!(round==0)) %>%
+  group_by(round) %>% filter(total_score==max(total_score)) %>%
+  ungroup() %>% arrange(round) %>%
+  mutate(cummax=cummax(total_score)) %>% 
+  filter(total_score==cummax) -> improvements
+
+# Parameters
+
+scores %>% ungroup() %>% select(round) -> pp
+
+pp %>% group_by(round) %>% count() %>% select(round) ->pp
+
+LFS <- list.dirs(path = glue('output/{exp}'),recursive = F)
+LFS <- LFS[grepl("LF",LFS)]
+
+for(i in seq(0,length(LFS)-1,1)){
+  if(i==0){
+    tp <- read.csv(paste(LFS[i+1],"translated_params.csv",sep='/'))
+    tp %>% mutate(round=i) ->  tp
+  } else {
+    tmp <- read.csv(paste(LFS[i+1],"translated_params.csv",sep='/'))
+    tmp %>% mutate(round=i) -> tmp
+    tp <- rbind.data.frame(tp,tmp)
+  }
+}
+
+
+tp %>% 
+  mutate(unit_value=gsub("tensor\\(","",unit_value)) %>%
+  mutate(unit_value=gsub("\\)","",unit_value)) %>%
+  mutate(unit_value=as.numeric(unit_value)) %>%
+  mutate(emod_value=gsub("tensor\\(","",emod_value)) %>%
+  mutate(emod_value=gsub("\\)","",emod_value)) %>%
+  mutate(parameter=gsub("_"," ",parameter)) %>%
+  mutate(parameter=gsub("Survival Rate","\nSurvival Rate",parameter))%>%
+  mutate(parameter=gsub("Inactivation","\nInactivation",parameter))%>%
+  mutate(parameter=gsub("Base","",parameter)) %>%
+  mutate(parameter=gsub("Falciparum","",parameter)) %>%
+  mutate(parameter=gsub("Nonspecific Anti","Nonspecific Anti-\n",parameter)) -> parameters
+
+
+param_levels <- unique(parameters$parameter)
+param_levels <- param_levels[c(1,5,10,7,6,11,12,
+                               4,2,9,3,
+                               14,13,8,17,15,16)]
+
+# unit values per parameter set
+parameters %>% select(parameter,unit_value,param_set,round)%>%spread(parameter,unit_value) -> unit_parameters
+# emod values per parameter set
+parameters %>% select(parameter,emod_value,param_set,round)%>%spread(parameter,emod_value) -> emod_parameters
+# parameter specifications
+parameters %>% select(parameter,min,max,team_default,transformation) %>% distinct() -> parameter_key
+```
+
+
+### Key Plots
+
+#### Scoring
+
+```{r}
+# Total scores vs. i
+total_scores %>%
+  ggplot(aes(x=param_set+round*batch_size,
+             y=-total_score)) +
+  theme(axis.text.x=element_text(angle=-90)) +
+  geom_point() +
+  geom_point(data=.%>%filter(round==0&param_set==1),
+             aes(color="default"))+
+  
+  geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
+             aes(color="best"))+
+  scale_y_log10() +labs(color=NULL) +
+  ylab("Total Score") + xlab("")
+
+# Objective scores vs. i
+objective_scores %>%
+  ggplot(aes(x=param_set+round*batch_size,
+             y=-objective_score)) +
+  theme(axis.text.x=element_text(angle=-90)) +
+  geom_point()  +
+  facet_wrap(~metric,scales="free_y")+
+  geom_point(data=.%>%filter(round==0&param_set==1),
+             aes(color="default"))+
+  
+  geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
+             aes(color="best"))+
+  scale_y_log10() +labs(color=NULL) +
+  ylab("Objective Score") + xlab("")
+
+# Objective scores by site
+scores %>%
+  ggplot(aes(x=param_set+round*batch_size,y=-ll))+
+  facet_wrap(~metric) +
+  geom_point(aes(color=site)) +
+  scale_y_log10() +
+  ylab("Objective Score") + xlab("")
+
+# Parameter search in 1D
+unit_parameters %>%
+  gather("parameter","unit_value",-c("param_set","round"))%>%
+  ggplot(aes(x=param_set+round*batch_size,
+             y=unit_value)) +
+  facet_wrap(~factor(parameter,levels=param_levels)) +
+  geom_point() +
+  scale_y_continuous(limits = c(0,1)) +
+  xlab("") + ylab("Unit parameter value")
+
+emod_parameters %>%
+  gather("parameter","emod_value",-c("param_set","round"))%>%
+  ggplot(aes(x=param_set+round*batch_size,
+             y=as.numeric(emod_value))) +
+  facet_wrap(~factor(parameter,levels=param_levels),
+             scales="free_y") +
+  xlab("") + ylab("EMOD parameter value") +
+  geom_point()
+
+```
+
+
+
+
+
+### Scores
 
 ```{r}
 scores <- read.csv(paste("output",exp,'all_LL.csv',sep='/'))
@@ -598,6 +739,7 @@ track_sets %>%
 
 ```
 
+### Parameters
 
 ```{r}
 # plot parameter search to visualize shrinking trust region / convergence / tradeoff
@@ -809,12 +951,13 @@ for(i in seq(1,length(parameters),2)){
 
 
 
-### plotting vs. data 
+### Objectives
 
 ```{r}
 sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
 ```
 
+#### Severe Incidence
 
 ```{r}
 ##### Severe Incidence Plots
@@ -905,7 +1048,91 @@ remove(inc_df)
 
 ```
 
+#### Incidence
 
+
+```{r}
+##### Incidence Plots #####
+
+## Plot Annual Incidence vs. Age
+
+incidence_sites <- c("ndiop_1993","dielmo_1990")
+
+ddmp <- track_sets %>% filter(site %in% incidence_sites)
+
+for(i in 1:nrow(ddmp))
+{
+  
+  tmp <- read.csv(paste("output/",exp,"/LF_",ddmp$round[i],
+                 "/SO/",ddmp$site[i],"/inc_prev_data_final.csv",sep=''))
+  tmp %>% right_join(ddmp[i,]) -> tmp
+  if(i==1){
+    inc_df <- tmp 
+  } else {
+    inc_df <- rbind.data.frame(inc_df,tmp)
+  }
+}
+
+
+# Read in reference data
+
+inc_ref <-read.csv("../reference_datasets/Cameron_age_incidence_prev.csv")
+
+inc_ref %>% filter(Site %in% incidence_sites) %>% select(Site,INC,INC_LAR,INC_UAR,POP) %>%
+  mutate(Age=INC_UAR) -> inc_ref
+
+for(s in unique(inc_df$site)){
+  inc_df %>%
+  filter(site==s) %>%
+  filter((param_set==1 & round==0) | round==max(round)) %>%
+  ggplot(aes(x=Age,y=Incidence)) +
+  ggtitle(toupper(s))+
+  theme_minimal(base_size=16) +
+  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
+            linewidth=round==max(round),
+            alpha=round==max(round))) +
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
+  scale_color_identity() +
+  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  scale_x_log10()+
+  labs(color=NULL,shape=NULL,size="Population") + ylab("Incidence per person per year") +
+    guides(linewidth="none")+
+  theme(legend.position="bottom") +
+  scale_alpha_manual(values=c(1,1)) +
+  scale_linewidth_manual(values=c(1,1))+
+  scale_size_continuous()+
+  guides(alpha="none",shape="none") -> pp
+  print(pp)
+  ggsave(paste(objectives_folder,paste(s,"incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
+
+  inc_df %>%
+  filter(site==s) %>%
+  ggplot(aes(x=Age,y=Incidence)) +
+  ggtitle(toupper(s))+
+  theme_minimal(base_size=16) +
+  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
+            linewidth=round==max(round),
+            alpha=round==max(round))) +
+  geom_point(data=inc_ref%>%filter(Site==s),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
+  scale_color_identity() +
+  scale_y_continuous(minor_breaks = seq(1,20,1))+
+  scale_x_log10()+
+  labs(linetype=NULL,color=NULL,shape=NULL,size="Population") + 
+  ylab("Incidence per person per year") +
+  guides(linewidth="none",alpha="none",shape="none")+
+  theme(legend.position="bottom") +
+  scale_alpha_manual(values=c(1,1)) +
+  scale_linewidth_manual(values=c(1,1))+
+  scale_size_continuous()+
+  scale_linetype_manual(values=c(2,rep(1,length(unique(inc_df$round)))))-> pp
+  print(pp)
+  ggsave(paste(objectives_folder,paste(s,"incidence.png",sep="_"),sep='/'),pp,height = 6,width=6)
+}
+
+remove(inc_df)
+```
+
+#### Prevalence
 
 ```{r}
 ##### Prevalence Plots #####
@@ -1100,87 +1327,7 @@ for(r in unique(garki_prev_df$round)){
 remove(garki_prev_df)
 ```
 
-```{r}
-##### Incidence Plots #####
-
-## Plot Annual Incidence vs. Age
-
-incidence_sites <- c("ndiop_1993","dielmo_1990")
-
-ddmp <- track_sets %>% filter(site %in% incidence_sites)
-
-for(i in 1:nrow(ddmp))
-{
-  
-  tmp <- read.csv(paste("output/",exp,"/LF_",ddmp$round[i],
-                 "/SO/",ddmp$site[i],"/inc_prev_data_final.csv",sep=''))
-  tmp %>% right_join(ddmp[i,]) -> tmp
-  if(i==1){
-    inc_df <- tmp 
-  } else {
-    inc_df <- rbind.data.frame(inc_df,tmp)
-  }
-}
-
-
-# Read in reference data
-
-inc_ref <-read.csv("../reference_datasets/Cameron_age_incidence_prev.csv")
-
-inc_ref %>% filter(Site %in% incidence_sites) %>% select(Site,INC,INC_LAR,INC_UAR,POP) %>%
-  mutate(Age=INC_UAR) -> inc_ref
-
-for(s in unique(inc_df$site)){
-  inc_df %>%
-  filter(site==s) %>%
-  filter((param_set==1 & round==0) | round==max(round)) %>%
-  ggplot(aes(x=Age,y=Incidence)) +
-  ggtitle(toupper(s))+
-  theme_minimal(base_size=16) +
-  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
-            linewidth=round==max(round),
-            alpha=round==max(round))) +
-  geom_point(data=inc_ref%>%filter(Site==s),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
-  scale_color_identity() +
-  scale_y_continuous(minor_breaks = seq(1,20,1))+
-  scale_x_log10()+
-  labs(color=NULL,shape=NULL,size="Population") + ylab("Incidence per person per year") +
-    guides(linewidth="none")+
-  theme(legend.position="bottom") +
-  scale_alpha_manual(values=c(1,1)) +
-  scale_linewidth_manual(values=c(1,1))+
-  scale_size_continuous()+
-  guides(alpha="none",shape="none") -> pp
-  print(pp)
-  ggsave(paste(objectives_folder,paste(s,"incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
-
-  inc_df %>%
-  filter(site==s) %>%
-  ggplot(aes(x=Age,y=Incidence)) +
-  ggtitle(toupper(s))+
-  theme_minimal(base_size=16) +
-  geom_line(aes(group=interaction(round,param_set),color=ifelse(round<training_batches,"gray",my_pal[round+1]),
-            linewidth=round==max(round),
-            alpha=round==max(round))) +
-  geom_point(data=inc_ref%>%filter(Site==s),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
-  scale_color_identity() +
-  scale_y_continuous(minor_breaks = seq(1,20,1))+
-  scale_x_log10()+
-  labs(linetype=NULL,color=NULL,shape=NULL,size="Population") + 
-  ylab("Incidence per person per year") +
-  guides(linewidth="none",alpha="none",shape="none")+
-  theme(legend.position="bottom") +
-  scale_alpha_manual(values=c(1,1)) +
-  scale_linewidth_manual(values=c(1,1))+
-  scale_size_continuous()+
-  scale_linetype_manual(values=c(2,rep(1,length(unique(inc_df$round)))))-> pp
-  print(pp)
-  ggsave(paste(objectives_folder,paste(s,"incidence.png",sep="_"),sep='/'),pp,height = 6,width=6)
-}
-
-remove(inc_df)
-```
-
+#### Densities
 
 ```{r}
 ##### Density Plots #####
@@ -1397,6 +1544,7 @@ for(s in unique(dens_df$Site)){
 #remove(dens_df)
 ```
 
+#### Infectiousness
 
 ```{r}
 
@@ -1614,6 +1762,7 @@ for(i in 1:nrow(ddmp)){
 remove(inf_df)
 ```
 
+### Length Scales (Post-Calib)
 
 ```{r}
 
@@ -1688,10 +1837,10 @@ if(length(ls_list)>1){
     summarize(value=mean(percentile)) %>%
     ungroup() %>%
     mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
-    mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>%
+    mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
     ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
                y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
-                                        "infectiousness","incidence")))) +
+                                        "infectiousness","incidence","severe_incidence")))) +
     theme_minimal(base_size=16) +
     geom_tile(color="white",
               aes(fill=value)) +
@@ -1703,23 +1852,27 @@ if(length(ls_list)>1){
   
   ggsave(paste(GP_folder,"average_ranked_lengthscales.png",sep="/"),width=10,height=6)
     
+  sensitivities %>%
+    ungroup() %>%
+    #mutate(value=1/value)%>%
+    group_by(metric,id) %>%
+    summarize(value=mean(value)) %>%
+    ungroup() %>%
+    mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
+    mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
+               y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
+                                        "infectiousness","incidence","severe_incidence")))) +
+    theme_minimal(base_size=16) +
+    geom_tile(color="white",
+              aes(fill=value)) +
+    scale_fill_distiller(palette="RdGy",direction = 1) +
+    theme(axis.text.x=element_text(angle=45,hjust=1)) +
+    xlab("") + ylab("") +
+    labs(fill=NULL) +
+    coord_fixed()
 }
+
+
+
 ```
-
-
-
-```{r}
-all_scores %>%
-  #filter(round==0) %>%
-  ggplot() +
-  facet_wrap(~metric,scales="free_y") +
-  geom_hline(yintercept=1, linetype=2)+
-  geom_boxplot(aes(x=factor(site),y=weighted_ll,group=factor(site))) +
-  geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
-             color="red",
-             aes(x=factor(site),y=weighted_ll)) +
-  coord_flip() +
-  scale_y_log10() +
-  xlab("") + ylab("wieghted score")
-```
-

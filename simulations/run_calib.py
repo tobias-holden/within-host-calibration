@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_241105"
+exp_label = "test_241107_unweighted"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -99,7 +99,7 @@ class Problem:
             score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
         ## Apply weights
-        Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
+        #Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
         #Y1['ll'] = Y1['ll']
         # Temporary fix to recognize that post-weighting zero (0) LL is bad
         Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10
@@ -292,6 +292,6 @@ bo.run()
 post_calibration_analysis(experiment=exp_label,
                           length_scales_by_objective=True,              # Fit single-task GP per within-host site-metric
                           length_scales_by_environment_objective=False, # per environment_calibration score
-                          length_scales_plot=True,                      # Plot length-scales from calibration
-                          prediction_plot=True,exclude_count=0,         # Plot predictions, starting @ exclude_count
-                          timer_plot=True)                              # Plot emulator and acquisition timing
+                          length_scales_plot=False,                      # Plot length-scales from calibration
+                          prediction_plot=False,exclude_count=0,         # Plot predictions, starting @ exclude_count
+                          timer_plot=False)                              # Plot emulator and acquisition timing
