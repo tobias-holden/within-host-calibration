@@ -7,6 +7,9 @@ import pandas as pd
 key_path = 'parameter_key.csv'
 parameter_key = pd.read_csv(key_path)
 
+distribution_names =["CONSTANT_DISTRIBUTION","UNIFORM_DISTRIBUTION",
+                     "GAUSSIAN_DISTRIBUTION","EXPONENTIAL_DISTRIBUTION",
+                     "LOG_NORMAL"]
 #### Define Parameter Translator
 
 def translate_parameters(key, guesses, ps_id):
@@ -78,6 +81,10 @@ def translate_parameters(key, guesses, ps_id):
         # Convert Data Types
         if(row['type'] == 'integer'):
             value = np.trunc(value)
+        if(row['parameter_name']=="InnateImmuneDistributionFlag"):
+            value=np.trunc(value)
+            value=distribution_names[int(value)]
+            
         
         default = row['team_default']
         if (default==''):

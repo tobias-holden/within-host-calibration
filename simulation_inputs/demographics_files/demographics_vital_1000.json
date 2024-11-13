@@ -210,10 +210,14 @@
          "PrevalenceDistribution2": 0.2,
          "PrevalenceDistributionFlag": 1,
          "PrevalenceDistribution_Description": "Constant Initial Prevalence (0.2)",
+         "RiskDist_Description": "LogNormal distributed risk",
          "RiskDist_Description": "Exponentially distributed risk",
          "RiskDistribution1": 0.0,
          "RiskDistribution2": 1.0,
-         "RiskDistributionFlag": 3
+         "RiskDistributionFlag": 3,
+         "InnateImmuneDistributionFlag": 1, 
+         "InnateImmuneDistribution1": 0, 
+         "InnateImmuneDistribution2": 1 
       },
               
       "NodeAttributes": {
