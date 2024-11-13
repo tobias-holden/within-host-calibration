@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import os, sys, shutil
+import json
+import torch
 sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
 import pandas as pd
 import numpy as np
@@ -11,6 +13,9 @@ from functools import \
 from idmtools.builders import SimulationBuilder
 from idmtools.core.platform_factory import Platform
 from idmtools.entities.experiment import Experiment
+
+#emod api
+from emod_api.demographics.demographics_utils import set_demog_distributions
 
 # emodpy
 from emodpy.emod_task import EMODTask
@@ -36,10 +41,9 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     platform_test=Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='12:00:00', 
                             account='b1139', modules=['singularity'], max_running_jobs=10, mem=2500)
     platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='4:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500,
-                            sbatch_custom=f"--job-name=run_{site}")
+                            account='b1139', modules=['singularity'], max_running_jobs=10, mem=2500)
     platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='12:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
+                            account='b1139', modules=['singularity'], max_running_jobs=10, mem=2500)
                             
     #platform = Platform(my_manifest.platform_name, priority=priority, node_group=my_manifest.node_group)
     #print("Prompting for COMPS creds if necessary...")
@@ -60,19 +64,8 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     print(str(experiment.uid))
     return str(experiment.uid)
 
-def add_calib_params(task, param, value, ptype):
-    if ptype == "integer": #and (param != "Max_Individual_Infections" or (param == "Max_Individual_Infections" and value > 1)):
-        task.set_parameter(param, int(value))
-    #elif ptype == "integer" and param == "Max_Individual_Infections" and value <= 1:
-     #   task.set_parameter('Enable_Superinfection', int(0))
-    elif ptype in ["float", "double"]:
-        task.set_parameter(param, float(value))
-    elif ptype in ['string']:
-        task.set_parameter(param, str(value))
-        
-    return {param: value}
     
-def add_calib_param_func(simulation, calib_params, sets):
+def add_calib_param_func(simulation, calib_params,site,sets):
     X = calib_params[calib_params['param_set'] == sets]
     X = X.reset_index(drop=True)
     for j in range(len(X)):

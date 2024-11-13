@@ -1,4 +1,5 @@
 import os, sys, shutil
+import json
 import warnings
 sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
 import pandas as pd
@@ -65,7 +66,7 @@ def set_param_fn(config):
     config = malconf.set_team_defaults(config, manifest)
     # config = set_config.set_config(config)
     config.parameters.Max_Individual_Infections = 20
-    config.parameters.Innate_Immune_Variation_Type = "NONE"
+    config.parameters.Innate_Immune_Variation_Type = "PYROGENIC_THRESHOLD_VS_AGE_IIV"
     config.parameters.Enable_Birth = 1
     # #config.parameters.Enable_Coinfection = 1
     # config.parameters.Enable_Demographics_Birth = 1
@@ -94,6 +95,7 @@ def set_param_fn(config):
     
     # update outputs
     config.parameters.Enable_Default_Reporting = 0
+    #config.parameters[ "logLevel_default" ] = "WARNING"\
     #config.parameters[ "logLevel_default" ] = "WARNING"
     
     # add biting heterogeneity
