@@ -64,7 +64,7 @@ def set_param_fn(config):
     """
     config = malconf.set_team_defaults(config, manifest)
     # config = set_config.set_config(config)
-    #config.parameters.Max_Individual_Infections = 20
+    config.parameters.Max_Individual_Infections = 20
     config.parameters.Innate_Immune_Variation_Type = "NONE"
     config.parameters.Enable_Birth = 1
     # #config.parameters.Enable_Coinfection = 1
