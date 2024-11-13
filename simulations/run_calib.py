@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_241107_unweighted"
+exp_label = "241110_13site_20seed"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -99,15 +99,15 @@ class Problem:
             score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
         
         ## Apply weights
-        #Y1['ll'] = (Y1['ll']  / (Y1['baseline'])) * (Y1['my_weight']) 
+        Y1['ll'] = (Y1['ll']) * (Y1['my_weight']) # weighting by general 'order' of baseline score
         #Y1['ll'] = Y1['ll']
         # Temporary fix to recognize that post-weighting zero (0) LL is bad
-        Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10
-        Y1.loc[(Y1['metric'] == 'incidence') & (Y1['ll'] == 0), 'll'] = -10
-        Y1.loc[(Y1['metric'] == 'severe_incidence') & (Y1['ll'] == 0), 'll'] = -10
-        Y1.loc[(Y1['metric'] == 'prevalence') & (Y1['ll'] == 0), 'll'] = -10
-        Y1.loc[(Y1['metric'] == 'asex_density') & (Y1['ll'] == 0), 'll'] = -10
-        Y1.loc[(Y1['metric'] == 'gamet_density') & (Y1['ll'] == 0), 'll'] = -10
+        Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10000
+        Y1.loc[(Y1['metric'] == 'incidence') & (Y1['ll'] == 0), 'll'] = -10000
+        Y1.loc[(Y1['metric'] == 'severe_incidence') & (Y1['ll'] == 0), 'll'] = -10000
+        Y1.loc[(Y1['metric'] == 'prevalence') & (Y1['ll'] == 0), 'll'] = -10000
+        Y1.loc[(Y1['metric'] == 'asex_density') & (Y1['ll'] == 0), 'll'] = -10000
+        Y1.loc[(Y1['metric'] == 'gamet_density') & (Y1['ll'] == 0), 'll'] = -10000
         
         Y = Y1.groupby("param_set").agg({"ll": lambda x: x.sum(skipna=False)}).reset_index().sort_values(by=['ll'])
         #Ym = Y1.groupby("param_set").agg({"ll": lambda x: x.min(skipna=False)}).reset_index().sort_values(by=['ll'])
@@ -221,6 +221,23 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 #bo.initRandom(2)
 
 # Usual random init sample, with team default Xprior
+
+params_241110 = [0.338892325, # Antigen switch rate
+                 0.171487813, # Base gametocyte fraction male
+                 0.245767666, # Base gametocyte mosquito survival rate
+                 0.75732431,  # Base gametocyte production rate
+                 0.069400287, # Falciparum MSP Variants
+                 0.101334176, # Falciparum Nonspecific types
+                 0.795278206, # Falciparum PfEMP1 variants
+                 0.984605496, # Fever iRBC kill rate
+                 0.835921451, # Gametocyte stage survival rate
+                 0.473425178, # MSP1 Merozoite kill fraction
+                 0.809004543, # Nonspecific antibody growth rate factor
+                 0.08839056,  # Nonspecific antigenicity factor
+                 0.283015895, # Pyrogenic Threshold
+                 1.0,         # Max individual infections = 20 (not under calib)
+                 0.236979335] # Cytokine Gametocyte Inactivation
+
                        
 team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
                        0.166666666667,  # Gametocyte sex ratio (0.2) 
@@ -236,8 +253,8 @@ team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
                        0.492373751573,  # Pyrogenic threshold (15000)
                        -1.0,            # Max Individual Infections (3)
-                       0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       0.755555555555,  # RBC Destruction Multiplier (3.9)
+                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
+                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
 
 team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10) 
@@ -254,8 +271,8 @@ team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
                        0.492373751573,  # Pyrogenic threshold (15000)
                        1.0,            # Max Individual Infections (20)
-                       0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       0.755555555555,  # RBC Destruction Multiplier (3.9)
+                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
+                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
                        0.433677]        # Cytokine Gametocyte Inactivation (0.02)
 
 params_241013 = [0.063819259,
@@ -271,16 +288,17 @@ params_241013 = [0.063819259,
                 0.694589051,
                 0.129187744,
                 0.294669431,
-                1.000000000, # Max Individual Infections (20)
-                0.410575954,
-                0.391240481,
+                #1.000000000, # Max Individual Infections (20)
+                #0.410575954,
+                #0.391240481,
                 0.199995755]
+                
 
 bo.initRandom(init_size,
               n_batches = init_batches,
               Xpriors = [team_default_params,
                          team_default_params20,
-                         params_241013])
+                         params_241110])
 
 # Run the optimization loop
 bo.run()
