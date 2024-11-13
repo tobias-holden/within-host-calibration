@@ -13,6 +13,4 @@ parameter_id,parameter_label,parameter_name,min,max,transform,class,description,
 12,Nonspecific Antigenicity Factor,Nonspecific_Antigenicity_Factor,0.000000001,1,none,immunity,The nonspecific antigenicity factor that adjusts antibody iRBC kill rate to account for iRBCs caused by antibody responses to antigenically weak surface proteins,double,NA,NA,0.2,0.4151
 13,Pyrogenic Threshold,Pyrogenic_Threshold,500,500000,log,immunity,"The level of bloodstream infection, measured in iRBC per microliter, at which stimulation of the innate inflammatory immune respnose is half its maximum value",float,0,2000000,1000,15000
 14,Max Individual Infections,Max_Individual_Infections,20,20,none,immunity,"blah",integer,NA,NA,3
-15,Erythropoeisis Anemia Effect,Erythropoiesis_Anemia_Effect,0.5,5,none,immunity,"The exponential rate of increased red-blood-cell production from reduced red-blood-cell availability",float,0,1000,3.5,3.5
-16,RBC Destruction Multiplier,RBC_Destruction_Multiplier,0.5,5,none,immunity,"The number of total red blood cells destroyed per infected rupturing schizont",float,NA,NA,9.5,3.29
-17,Cytokine Gametocyte Inactivation,Cytokine_Gametocyte_Inactivation,0.001,1,log,immunity,"The strength of inflammatory response inactivation of gametocytes",float,0,1,0.02,0.02
+15,Cytokine Gametocyte Inactivation,Cytokine_Gametocyte_Inactivation,0.001,1,log,immunity,"The strength of inflammatory response inactivation of gametocytes",float,0,1,0.02,0.02
