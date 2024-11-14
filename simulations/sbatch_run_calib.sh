@@ -10,7 +10,6 @@
 #SBATCH --error=log/calibration_withinHost_CK.%j.err
 #SBATCH --output=log/calibration_withinHost_CK.%j.out
 
-
 module purge all
 
 # Navigate to project directory
