@@ -235,8 +235,18 @@ params_241110 = [0.338892325, # Antigen switch rate
                  0.809004543, # Nonspecific antibody growth rate factor
                  0.08839056,  # Nonspecific antigenicity factor
                  0.283015895, # Pyrogenic Threshold
-                 1.0,         # Max individual infections = 20 (not under calib)
-                 0.236979335] # Cytokine Gametocyte Inactivation
+                 #1.0,         # Max individual infections = 20 (not under calib)
+                 0.236979335, # Cytokine Gametocyte Inactivation
+                 0.0,         # InnateImmuneDistributionFlag (Constant)
+                 0.0,         # Innate Immune Distribution hyperparameter
+                 0.0,          # Innate Immune Distribution hyperparameter placeholder
+                 0.08869166174886942, # Severe fever inverse width
+                 0.1,                 # Severe fever threshold
+                 0.32967622160487114, # Severe parasite inverse width
+                 0.55130716080761,    # Severe parasite threshold
+                 0.834479208605029,   # Severe anemia inverse width
+                 0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                 0.09790265662515]    # Maternal antibody protection
 
                        
 team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
@@ -252,10 +262,20 @@ team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
                        0.492373751573,  # Pyrogenic threshold (15000)
-                       -1.0,            # Max Individual Infections (3)
+                       #-1.0,            # Max Individual Infections (3)
                        #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
                        #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677]        # Cytokine Gametocyte Inactivation (0.02)
+                       0.433677,         # Cytokine Gametocyte Inactivation (0.02)
+                       0.0,         # InnateImmuneDistributionFlag (Constant)
+                       0.0,         # Innate Immune Distribution hyperparameter
+                       0.0,          # Innate Immune Distribution hyperparameter placeholder
+                       0.08869166174886942, # Severe fever inverse width
+                       0.1,                 # Severe fever threshold
+                       0.32967622160487114, # Severe parasite inverse width
+                       0.55130716080761,    # Severe parasite threshold
+                       0.834479208605029,   # Severe anemia inverse width
+                       0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                       0.09790265662515]    # Maternal antibody protection
 
 team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10) 
                        0.166666666667,  # Gametocyte sex ratio (0.2) 
@@ -270,10 +290,21 @@ team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
                        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
                        0.492373751573,  # Pyrogenic threshold (15000)
-                       1.0,            # Max Individual Infections (20)
+                       #1.0,            # Max Individual Infections (20)
                        #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
                        #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677]        # Cytokine Gametocyte Inactivation (0.02)
+                       0.433677,         # Cytokine Gametocyte Inactivation (0.02)
+                       0.0,         # InnateImmuneDistributionFlag (Constant)
+                       0.0,         # Innate Immune Distribution hyperparameter (0)
+                       0.0,          # Innate Immune Distribution hyperparameter placeholder (0)
+                       0.08869166174886942, # Severe fever inverse width (27.5653580403806)
+                       0.1,                 # Severe fever threshold (3.98354299722192)
+                       0.32967622160487114, # Severe parasite inverse width (56.5754896048744)
+                       0.55130716080761,    # Severe parasite threshold (851031.287744526)
+                       0.834479208605029,   # Severe anemia inverse width (10)
+                       0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                       0.09790265662515]    # Maternal antibody protection
+                       
 
 params_241013 = [0.063819259,
                 0.311834632,
@@ -291,13 +322,22 @@ params_241013 = [0.063819259,
                 #1.000000000, # Max Individual Infections (20)
                 #0.410575954,
                 #0.391240481,
-                0.199995755]
+                0.199995755,
+                0.0,         # InnateImmuneDistributionFlag (Constant)
+                0.0,         # Innate Immune Distribution hyperparameter
+                0.0,          # Innate Immune Distribution hyperparameter placeholder
+                0.08869166174886942, # Severe fever inverse width
+                0.1,                 # Severe fever threshold
+                0.32967622160487114, # Severe parasite inverse width
+                0.55130716080761,    # Severe parasite threshold
+                0.834479208605029,   # Severe anemia inverse width
+                0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                0.09790265662515]    # Maternal antibody protection
                 
 
 bo.initRandom(init_size,
               n_batches = init_batches,
-              Xpriors = [team_default_params,
-                         team_default_params20,
+              Xpriors = [team_default_params20,
                          params_241110])
 
 # Run the optimization loop

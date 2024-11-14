@@ -22,7 +22,7 @@ from emodpy.emod_task import EMODTask
 from emodpy_malaria.reporters.builtin import add_report_intervention_pop_avg
 
 from helpers import set_param_fn, update_sim_random_seed, set_simulation_scenario_for_characteristic_site, \
-    set_simulation_scenario_for_matched_site, get_comps_id_filename
+    set_simulation_scenario_for_matched_site, get_comps_id_filename, load_coordinator_df
 
 from utils_slurm import submit_scheduled_analyzer
 
@@ -68,6 +68,7 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
 def add_calib_param_func(simulation, calib_params,site,sets):
     X = calib_params[calib_params['param_set'] == sets]
     X = X.reset_index(drop=True)
+    coord_df=load_coordinator_df()
     for j in range(len(X)):
         param=X['parameter'][j]
         value=X['emod_value'][j]
@@ -79,7 +80,83 @@ def add_calib_param_func(simulation, calib_params,site,sets):
             simulation.task.set_parameter(param, float(value))
         elif ptype in ['string']:
             simulation.task.set_parameter(param, str(value))
+
+        demog = (manifest.input_files_path / coord_df.at[site,'demographics_filepath'])
+            
+    if coord_df.at[site,'enable_vital_dynamics'] :
+        #demog = json.load(open((manifest.input_files_path / "demographics_files/demographics_vital_1000.json"),"r"))
+        shutil.copyfile(demog, f'my_demographics_vital_{sets}.json')
+        distributions = list()
+        IIV = X[X['type']=='demog'].reset_index(drop=True)
+        IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
+        IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
+        IIV2= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].reset_index(drop=True)[0]
+        #IIVF = IIV[IIV['parameter']=="InnateImmuneDistributionFlag"].reset_index(drop=True)
+        #IIV1 = IIV[IIV['parameter']=="InnateImmuneDistribution1"].reset_index(drop=True)
+        #IIV2 = IIV[IIV['parameter']=="InnateImmuneDistribution2"].reset_index(drop=True)
         
+        if torch.is_tensor(IIV1):
+          IIV1 = IIV1.numpy()
+        if torch.is_tensor(IIV2):
+          IIV2 = IIV2.numpy()
+        
+        print(IIV)
+        print(IIVF)
+        print(IIV1)
+        print(IIV2)
+        distributions.append(("InnateImmune",
+                              IIVF,
+                              float(IIV1),
+                              float(IIV2)))
+        print(distributions)
+        print(type(distributions))
+        set_demog_distributions(f'my_demographics_vital_{sets}.json', distributions)
+        # with open(os.path.join(manifest.input_files_path,"demographics_files/my_demographics_vital.json"), 'w', encoding='utf-8') as f:
+        #     json.dump(demog, f, ensure_ascii=False, indent=4)
+        
+        simulation.task.transient_assets.add_asset(f'my_demographics_vital_{sets}.json')
+        
+        
+        simulation.task.set_parameter("Demographics_Filenames",[f'my_demographics_vital_{sets}.json'])    
+        
+    else:
+    
+       #demog = json.load(open((manifest.input_files_path / "demographics_files/demographics_cohort_1000.json"),"r"))
+        shutil.copyfile(demog, f'my_demographics_cohort_{sets}.json')
+        distributions = list()
+        IIV = X[X['type']=='demog'].reset_index(drop=True)
+        IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
+        IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
+        IIV2= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].reset_index(drop=True)[0]
+        #IIVF = IIV[IIV['parameter']=="InnateImmuneDistributionFlag"].reset_index(drop=True)
+        #IIV1 = IIV[IIV['parameter']=="InnateImmuneDistribution1"].reset_index(drop=True)
+        #IIV2 = IIV[IIV['parameter']=="InnateImmuneDistribution2"].reset_index(drop=True)
+        
+        if torch.is_tensor(IIV1):
+          IIV1 = IIV1.numpy()
+        if torch.is_tensor(IIV2):
+          IIV2 = IIV2.numpy()
+        
+        print(IIV)
+        print(IIVF)
+        print(IIV1)
+        print(IIV2)
+        distributions.append(("InnateImmune",
+                              IIVF,
+                              float(IIV1),
+                              float(IIV2)))
+        print(distributions)
+        print(type(distributions))
+        set_demog_distributions(f'my_demographics_cohort_{sets}.json', distributions)
+        # with open(os.path.join(manifest.input_files_path,"demographics_files/my_demographics_cohort.json"), 'w', encoding='utf-8') as f:
+        #     json.dump(demog, f, ensure_ascii=False, indent=4)
+        
+        simulation.task.transient_assets.add_asset(f'my_demographics_cohort_{sets}.json')
+        
+        
+        simulation.task.set_parameter("Demographics_Filenames",[f'my_demographics_cohort_{sets}.json'])    
+    
+    
     return {'param_set':sets}
 
 def create_exp(characteristic, nSims, site, my_manifest, not_use_singularity, platform, X):
@@ -115,8 +192,7 @@ def _create_builder(task,characteristic, nSims, site, X):
     
     #set if using csv/not running with my func
     #X = pd.read_csv(os.path.join(manifest.CURRENT_DIR,"10_initial_samples.csv"))
-
-    builder.add_sweep_definition(partial(add_calib_param_func, calib_params=X), np.unique(X['param_set']))
+    builder.add_sweep_definition(partial(add_calib_param_func, calib_params=X,site=site), np.unique(X['param_set']))
     return builder, exp_name
 
 
