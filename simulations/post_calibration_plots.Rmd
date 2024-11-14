@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "241108_no_severe_14param"
+exp <- "small_PT_severe"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
@@ -136,7 +136,7 @@ parameters %>% select(parameter,min,max,team_default,transformation) %>% distinc
 
 Heterogeneity in selected samples
 
-```{r}
+```{r,eval=F}
 total_scores %>% ungroup() %>%
   mutate(rank=rank(-total_score)) %>%
   arrange(rank) %>%
@@ -998,7 +998,7 @@ severe_incidence_sites <- sim_coord_df$site[sim_coord_df$age_severe_incidence==1
 
 if(length(severe_incidence_sites)>0){
   ddmp <- improvements %>% left_join(scores) %>% filter(site %in% severe_incidence_sites)
-  ddmp <- scores %>% filter(site %in% severe_incidence_sites & param_set!=4 & metric=="severe_incidence")
+  ddmp <- scores %>% filter(site %in% severe_incidence_sites & metric=="severe_incidence")
 
 for(i in 1:nrow(ddmp))
 {
@@ -1126,8 +1126,8 @@ remove(inc_df)
 incidence_sites <- c("ndiop_1993","dielmo_1990")
 
 ddmp <- improvements %>% left_join(scores) %>% filter(site %in% incidence_sites & metric=="incidence")
-ddmp <- scores %>% filter(site %in% incidence_sites & metric=="incidence" & param_set!=4)
-ddmp <- top100 %>% left_join(scores) %>% filter(site %in% incidence_sites & metric=="incidence")
+ddmp <- scores %>% filter(site %in% incidence_sites & metric=="incidence")
+#ddmp <- top100 %>% left_join(scores) %>% filter(site %in% incidence_sites & metric=="incidence")
 
 
 for(i in 1:nrow(ddmp))
@@ -1234,8 +1234,8 @@ remove(inc_df)
 # Gather simulation outputs
 
 ddmp <- improvements %>% left_join(scores) %>% filter(site =="namawala_2001" & metric=="prevalence")
-ddmp <- scores %>% filter(site =="namawala_2001" & metric=="prevalence" & param_set!=4)
-ddmp <- top100 %>% left_join(scores) %>% filter(site =="namawala_2001" & metric=="prevalence")
+ddmp <- scores %>% filter(site =="namawala_2001" & metric=="prevalence")
+#ddmp <- top100 %>% left_join(scores) %>% filter(site =="namawala_2001" & metric=="prevalence")
 
 
 for(i in 1:nrow(ddmp))
@@ -1298,7 +1298,7 @@ namawala_prev_df %>%
   ggplot(aes(x=Age,y=Prevalence)) +
   theme_bw(base_size=16) +
   geom_line(aes(group=interaction(round,param_set),color=factor(param_set)),
-            alpha=0.1) + 
+            alpha=1) + 
   geom_point(data=namawala_prev_ref,
              aes(x=agebin,y=prevalence,
                  shape="reference",size=total_sampled)) +
@@ -1320,8 +1320,8 @@ mp_sites <- c("matsari_1970","rafin_marke_1970","sugungum_1970")
 
 # Gather simulation outputs
 ddmp <- improvements %>% left_join(scores) %>% filter(site %in% mp_sites & metric=="prevalence")
-ddmp <- scores %>% filter(site %in% mp_sites & metric=="prevalence" & param_set!=4)
-ddmp <- top100%>%left_join(scores) %>% filter(site %in% mp_sites & metric=="prevalence")
+ddmp <- scores %>% filter(site %in% mp_sites & metric=="prevalence")
+#ddmp <- top100%>%left_join(scores) %>% filter(site %in% mp_sites & metric=="prevalence")
 
 for(i in 1:nrow(ddmp))
 {
@@ -1438,7 +1438,7 @@ density_sites <- c("dapelogo_2007","laye_2007","matsari_1970","rafin_marke_1970"
 # Gather simulation outputs
 ddmp <- improvements %>% left_join(scores) %>% filter(site%in%density_sites) %>% select(site,round,param_set)%>% distinct()
 
-ddmp <- scores %>% filter(site%in%density_sites & param_set!=4) %>% select(site,round,param_set)%>% distinct()
+ddmp <- scores %>% filter(site%in%density_sites) %>% select(site,round,param_set)%>% distinct()
 
 # Lump data
 for(ss in 1:length(unique(ddmp$site)))
@@ -1654,7 +1654,7 @@ remove(dens_df)
 inf_sites <- c("dapelogo_2007","laye_2007")
 ddmp <- improvements %>% left_join(scores) %>% filter(site%in%inf_sites) %>% select(site,round,param_set)%>% distinct()
 
-ddmp <- scores %>% filter(site%in%inf_sites) %>% select(site,round,param_set)%>% distinct() %>% filter(param_set!=4)
+ddmp <- scores %>% filter(site%in%inf_sites) %>% select(site,round,param_set)%>% distinct()
 
 ddmp = ddmp %>% arrange(-round,-param_set)
 

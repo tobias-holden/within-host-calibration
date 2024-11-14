@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -A b1139
-#SBATCH -p b1139testnode
+#SBATCH -p b1139
 #SBATCH -t 120:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
-#SBATCH --job-name="calibration_withinHost"
-#SBATCH --error=log/calibration_withinHost.%j.err
-#SBATCH --output=log/calibration_withinHost.%j.out
+#SBATCH --job-name="calibration_withinHost_IIV"
+#SBATCH --error=log/calibration_withinHost_IIV.%j.err
+#SBATCH --output=log/calibration_withinHost_IIV.%j.out
 
 
 module purge all

@@ -108,11 +108,48 @@ def translate_parameters(key, guesses, ps_id):
         
         #print(row['parameter_name'])
         #print(guesses[index],'-->',value)
-        
+    
     output = output.reset_index(drop=True)
     
-    #print(result)
-    #print(output[['parameter','unit_value','emod_value','type']])    
+    # Check IIVT Logic & do second translation on hyperparams
+    ifrow = output[output['parameter'] == 'InnateImmuneDistributionFlag'].reset_index()
+    #print(ifrow)
+    iflag = ifrow['emod_value'][0]
+    #print(iflag)
+    #print(iflag)
+    
+    x1=output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].item()
+    x2=output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].item()
+
+    if iflag=='CONSTANT_DISTRIBUTION':
+      #print("CONSTANT")
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.0
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = 0.0
+    elif iflag=='UNIFORM_DISTRIBUTION':
+      #print("UNIFORM")
+      # Min
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 1.0-x1
+      # Max
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = 1.0 + x1
+    elif iflag=='GAUSSIAN_DISTRIBUTION':
+      #print("GAUSSIAN")
+      # Mean fixed at 1.0
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 1.0
+      # Convert standard deviation
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
+    elif iflag=='EXPONENTIAL_DISTRIBUTION':
+      #print("EXPONENTIAL")
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = x1
+      # No second parameter, set to zero.
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = 0.0
+    elif iflag=='LOG_NORMAL':
+      #print("LOGNORMAL")
+      # Fix mean at 0.0
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.0
+      # standard deviation
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
+      
+     
     return(output)
 
 #### Generate Initial Samples
@@ -132,7 +169,7 @@ def get_initial_samples(key, size=1):
     
     #values['param_set'] = np.trunc(values.index/15)+1
     #print(values.shape)
-    print(values)
+    #print(values)
     return(values)
 
 def emod_to_unit(key,param,value): 
@@ -148,11 +185,39 @@ def emod_to_unit(key,param,value):
 
 
 if __name__ == '__main__':
-    #size = 10
-    #initial_samples = get_initial_samples(parameter_key, size)
-    #print(initial_samples)
+
+
     param_key=pd.read_csv("parameter_key.csv")
     
-    print(emod_to_unit(param_key,"RBC_Destruction_Multiplier",3.9)) 
-    print(emod_to_unit(param_key,"Erythropoiesis_Anemia_Effect",3.5)) 
-    print(emod_to_unit(param_key,"Cytokine_Gametocyte_Inactivation",0.02)) 
+    print(emod_to_unit(param_key,"Anemia_Severe_Threshold",4.50775824973078))
+    print(emod_to_unit(param_key,"Anemia_Severe_Inverse_Width",10))
+    print(emod_to_unit(param_key,"Fever_Severe_Threshold",3.98354299722192))
+    print(emod_to_unit(param_key,"Fever_Severe_Inverse_Width",27.5653580403806))
+    print(emod_to_unit(param_key,"Parasite_Severe_Threshold",851031.287744526))
+    print(emod_to_unit(param_key,"Parasite_Severe_Inverse_Width",56.5754896048744))
+    
+    # 
+    # test_params= [0.235457679394, # Antigen switch rate (7.65E-10) 
+    #               0.166666666667,  # Gametocyte sex ratio (0.2) 
+    #               0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+    #               0.394437557888,  # Base gametocyte production rate (0.0615)
+    #               0.50171665944,   # Falciparum MSP variants (32)
+    #               0.0750750750751, # Falciparum nonspecific types (76)
+    #               0.704339142192,  # Falciparum PfEMP1 variants (1070)
+    #               0.28653200892,   # Fever IRBC kill rate (1.4)
+    #               0.584444444444,  # Gametocyte stage survival rate (0.5886)
+    #               0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+    #               0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
+    #               0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
+    #               0.492373751573,  # Pyrogenic threshold (15000)
+    #               #1.0,            # Max Individual Infections (20)
+    #               #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
+    #               #0.755555555555,  # RBC Destruction Multiplier (3.9)
+    #               0.433677,         # Cytokine Gametocyte Inactivation (0.02)
+    #               0.97,         # InnateImmuneDistributionFlag (Constant)
+    #               0.25,         # Innate Immune Distribution hyperparameter
+    #               0.3          # Innate Immune Distribution hyperparameter placeholder
+    #              ]
+    #              
+    # tp=translate_parameters(param_key, test_params, 1)
+    # #print(tp[['parameter','unit_value','emod_value']])
