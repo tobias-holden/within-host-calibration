@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "241110_13site_20seed"
+exp_label = "test_CK"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 

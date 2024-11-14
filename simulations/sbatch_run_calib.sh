@@ -6,9 +6,9 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
-#SBATCH --job-name="calibration_withinHost"
-#SBATCH --error=log/calibration_withinHost.%j.err
-#SBATCH --output=log/calibration_withinHost.%j.out
+#SBATCH --job-name="calibration_withinHost_CK"
+#SBATCH --error=log/calibration_withinHost_CK.%j.err
+#SBATCH --output=log/calibration_withinHost_CK.%j.out
 
 
 module purge all
