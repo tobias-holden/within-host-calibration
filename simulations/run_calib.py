@@ -48,11 +48,11 @@ failure_limit = int(calib_coord.at["failure_limit",1])
 success_limit = int(calib_coord.at["success_limit",1])
 
 param_key=pd.read_csv("parameter_key.csv")
-
+n_params=int(param_key.shape[0])
 # Define the Problem, it must be a functor
 class Problem:
     def __init__(self,workdir="checkpoints/emod"):
-        self.dim = int(param_key.shape[0])  #17 # mandatory dimension
+        self.dim = n_params  #mandatory dimension
         self.ymax = None #max value
         self.best = None
         self.n = 0
@@ -220,6 +220,10 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 # Sample and evaluate sets of parameters randomly drawn from the unit cube
 #bo.initRandom(2)
 
+# centroid of unit parameter cube
+
+param_center = [0.5] * n_params
+
 # Usual random init sample, with team default Xprior
 
 params_241110 = [0.338892325, # Antigen switch rate
@@ -333,12 +337,14 @@ params_241013 = [0.063819259,
                 0.834479208605029,   # Severe anemia inverse width
                 0.565754896048744,   # Severe anemia threshold (4.50775824973078)
                 0.09790265662515]    # Maternal antibody protection
-                
+          
+xprior = [team_default_params20, params_241110]
+## add samples at unit centroid to learn noise
+#xprior = x_prior + [param_center]*5
 
 bo.initRandom(init_size,
               n_batches = init_batches,
-              Xpriors = [team_default_params20,
-                         params_241110])
+              Xpriors = xprior)
 
 # Run the optimization loop
 bo.run()
