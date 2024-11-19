@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "241108_no_severe_14param"
+exp <- "241114_homogeneous"
 
 dir.create(paste("output",exp,"performance",sep="/"))
 GP_folder<-paste("output",exp,"performance/GP",sep='/')
@@ -75,9 +75,11 @@ for(ls in ls_list){
   
   pids <- seq(1,max(sensitivities$id))
   
-  plevels <- c(1,5,10,6,11,12,7,
-               13,8,14,
-               2,3,4,9)
+  plevels <- c(1,5,10,6,11,12,7, # Acquired immune
+               21,13,8,14,          # Innate immune
+               2,3,4,9,          # gametocyte
+               15,16,17,18,19,20)# severe disease
+  
 sensitivities %>%
     mutate(site=gsub('.{5}$', '', site))%>%
     mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
@@ -149,17 +151,17 @@ sensitivities %>%
     ungroup() %>%
     mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
     mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
-    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
-               y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
+    ggplot(aes(y=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
+               x=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence","severe_incidence")))) +
-    theme_minimal(base_size=16) +
+    theme_minimal(base_size=12) +
     geom_tile(color="white",
               aes(fill=value)) +
     scale_fill_distiller(palette="RdGy",direction = 1) +
     theme(axis.text.x=element_text(angle=45,hjust=1)) +
     xlab("") + ylab("") +
     labs(fill=NULL) +
-    coord_fixed()
+    coord_fixed() 
   ggsave(paste(GP_folder,"average_lengthscales.png",sep="/"),width=10,height=6)
 ```
 
