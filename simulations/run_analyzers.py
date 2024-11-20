@@ -141,8 +141,8 @@ def run_analyzers(site: str, expid: str = None, characteristic: bool = False) ->
         #wi = analysis.get_work_item()
         analyzers_id_file = get_comps_id_filename(site=site, level=2)
         
-        with Platform('SLURM_LOCAL',job_directory=manifest.job_directory, partition='b1139',
-                            account='b1139', mem=20000) as platform:
+        with Platform('SLURM_LOCAL',job_directory=manifest.job_directory, partition='short',
+                            account='p32622', mem=20000) as platform:
             # Create AnalyzerManager with required parameters
             manager = AnalyzeManager(configuration={},ids=[(exp_id, ItemType.EXPERIMENT)],
                                      analyzers=analyzers,  partial_analyze_ok=True)#, analyze_failed_items=True)#
