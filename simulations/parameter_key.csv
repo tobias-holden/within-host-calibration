@@ -23,11 +23,3 @@ parameter_id,parameter_label,parameter_name,min,max,transform,class,description,
 22,Anemia_Severe_Inverse_Width,Anemia_Severe_Inverse_Width,0,100,none,severe,NA,float,,,100,10
 23,Anemia_Severe_Threshold,Anemia_Severe_Threshold,3,20,none,severe,NA,float,,,5,4.50775825
 24,Maternal_Antibody_Protection,Maternal_Antibody_Protection,0,1,none,severe,NA,float,,,0.12396744973429291,0.097902657
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,
-,,,,,,,,,,,,

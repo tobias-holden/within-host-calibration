@@ -30,7 +30,8 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "small_PT_severe"
+exp_label = "test_CK"
+
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -337,7 +338,7 @@ params_241013 = [0.063819259,
                 0.834479208605029,   # Severe anemia inverse width
                 0.565754896048744,   # Severe anemia threshold (4.50775824973078)
                 0.09790265662515]    # Maternal antibody protection
-          
+
 xprior = [team_default_params20, params_241110]
 ## add samples at unit centroid to learn noise
 #xprior = x_prior + [param_center]*5

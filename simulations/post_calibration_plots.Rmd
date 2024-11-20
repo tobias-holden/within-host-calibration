@@ -16,6 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
+
 exp <- ""
 
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
@@ -107,7 +108,8 @@ tp %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
   mutate(emod_value=gsub("tensor\\(","",emod_value)) %>%
   mutate(emod_value=gsub("\\)","",emod_value)) %>%
-  mutate(emod_value=as.numeric(emod_value)) %>%
+  mutate(emod_value=ifelse(parameter!="InnateImmuneDistributionFlag",as.numeric(emod_value),
+                           emod_value)) %>%
   mutate(emod_value=ifelse(transformation=="log",
                            log10(emod_value),
                            emod_value)) %>%
@@ -123,9 +125,11 @@ tp %>%
 
 
 param_levels <- unique(parameters$parameter)
-param_levels <- param_levels[c(1,5,10,7,6,11,12,
-                               4,2,9,3,
-                               14,13,8,17,15,16)]
+param_order <- c(1,5,10,7,6,11,12,14,24,
+                 4,2,9,3,
+                 13,8,15,16,17,
+                 18,19,20,21,22,23)
+param_levels <- param_levels[param_order]
 
 # unit values per parameter set
 parameters %>% select(parameter,unit_value,param_set,round)%>%spread(parameter,unit_value) -> unit_parameters
@@ -139,9 +143,32 @@ Heterogeneity in selected samples
 
 ```{r,eval=F}
 total_scores %>% ungroup() %>%
-  mutate(rank=rank(-total_score)) %>%
+  mutate(rank=rank(total_score)) %>%
   arrange(rank) %>%
   filter(rank<=100) -> top100
+
+total_scores %>% left_join(parameters) %>% select(round,param_set,total_score,parameter,unit_value) %>%
+  pivot_wider(names_from=parameter,values_from = unit_value) %>%
+  ungroup() %>%
+  filter(total_score>=-95000) -> best_sets
+
+
+best_sets %>% select(-total_score)%>%
+  summarize(across(-c(param_set,round), mean)) -> center_best
+
+best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %>%
+  left_join(center_best %>% gather("parameter","center")) %>%
+  mutate(dist=abs(center-unit_value))%>% 
+  group_by(round,param_set)%>%
+  mutate(total_dist=sum(dist)) %>%
+    ungroup() %>%
+  arrange(-total_dist) %>%
+  group_by(parameter) %>% mutate(keep=dist==max(dist)) %>%
+  ungroup() %>%
+  mutate(keep = ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  group_by(round,param_set) %>%
+  mutate(keep=sum(keep)>0)%>%
+  filter(keep) -> best_sets
 
 total_scores %>%
   filter(round<training_batches) -> randominit
@@ -158,31 +185,32 @@ for(i in seq(1,length(myparams),1))
   {
     if(i<j)
     {
-      unit_parameters %>%
-        ggplot(aes(x=!!sym(myparams[i]),
-                   y=!!sym(myparams[j]))) +
-        geom_point(data=.%>%filter(round<training_batches),
-                   aes(color="init"),alpha=0.5) +
-        geom_point(data=.%>%right_join(top100),
-                   aes(color="top100"),alpha=0.5) +
-        coord_fixed() +
-        labs(color="Unit Values")+
-        scale_color_manual(values=c("gray","red")) ->p
-      
-      print(p)
+      # unit_parameters %>%
+      #   ggplot(aes(x=!!sym(myparams[i]),
+      #              y=!!sym(myparams[j]))) +
+      #   geom_point(aes(color="init"),alpha=0.5) +
+      #   geom_point(data=.%>%right_join(best_sets),
+      #              aes(color="selected"),alpha=0.5) +
+      #   coord_fixed() +
+      #   labs(color="Unit Values")+
+      #   scale_color_manual(values=c("gray","red")) ->p
+      # 
+      # print(p)
       
       #ggsave(paste("~/",paste(i,"vs",j,sep="_"),".png",sep=""),p,height=5,width=6)
       # 
        emod_parameters %>%
         ggplot(aes(x=!!sym(myparams[i]),
                    y=!!sym(myparams[j]))) +
-        geom_point(data=.%>%filter(round<training_batches),
-                   aes(color="init"),alpha=0.5) +
-        geom_point(data=.%>%right_join(top100),
-                   aes(color="top100"),alpha=0.5) +
+        geom_point(aes(color="init"),alpha=0.5) +
+        geom_point(data=.%>%right_join(best_sets),
+                   aes(color="selected"),alpha=0.5) +
+        geom_point(data=parameter_key %>% mutate(team_default=ifelse(transformation=="log",log10(team_default),team_default))%>%
+                     select(parameter,team_default)%>%pivot_wider(names_from=parameter,values_from=team_default),
+                   aes(color="default"))+
         #coord_fixed() +
         labs(color="EMOD Values")+
-        scale_color_manual(values=c("gray","red")) ->p
+        scale_color_manual(values=c("black","gray","red")) ->p
       print(p)
     }
   }
@@ -197,7 +225,7 @@ for(i in seq(1,length(myparams),1))
 
 #### Scoring
 
-```{r}
+```{r,eval=F}
 #### Raw scores
 
 # Total scores vs. i
@@ -300,9 +328,6 @@ scores %>%
   scale_color_manual(values=c("navy","gold"))
 
 ```
-
-
-
 
 
 ### Scores
@@ -451,13 +476,13 @@ scores %>%
   mutate(plotcolor=round-training_batches+2) %>% arrange(-plotcolor) %>%
   mutate(plotcolor=ifelse(plotcolor<1,1,plotcolor)) %>%
   filter(metric!="no_blood") %>%
-  ggplot(aes(x=ps,y=-log10(-weighted_ll))) +
+  ggplot(aes(x=ps,y=log10(-weighted_ll))) +
   facet_wrap(metric~site) +
   geom_point(aes(color=my_pal[plotcolor]))+
   geom_hline(data=.%>%filter(ps!=1) %>% filter(param_set==best_ps & round==best_round),
-             aes(yintercept=-log10(-weighted_ll),linetype="best"))+
+             aes(yintercept=log10(-weighted_ll),linetype="best"))+
   
-  ylab("-Log10(Score)") + xlab("#") +
+  ylab("Log10(-Weighted Score)") + xlab("#") +
   theme_minimal(base_size=16) +
   theme(legend.position=c(0.9,0),
         legend.justification = c(1,0))+
@@ -491,9 +516,10 @@ scores %>%
   scale_linetype_manual(values=c(2,1)) +
   labs(linetype=NULL)-> bp
 
-  ggsave(paste(score_folder,paste("scores_objective_all.png",sep="_"),sep='/'),bp,height =6,width=8)
+  print(bp)
+  ggsave(paste(score_folder,paste("scores_objective_all.pdf",sep="_"),sep='/'),bp,height =6,width=8)
+
   
-bp  
   
 improvements %>% 
   left_join(scores) %>%
@@ -559,7 +585,7 @@ scores %>%
   ggplot(aes(x=interaction(param_set,round),y=-weighted_ll,alpha=interaction(param_set,round)%in%interaction(improvements$param_set,improvements$round))) +
   geom_bar(stat="identity",position="stack",aes(fill=metric, group=weighted_ll),color="white") +
   theme_minimal(base_size=16) +
-  ylab("Score") + xlab("") +
+  ylab("-Score") + xlab("") +
   #scale_x_continuous(breaks=c()) +
   #scale_y_continuous(minor_breaks = seq(0,100,1)) +
   # Label component scores (unless very small, <0.5)
@@ -578,6 +604,40 @@ scores %>%
   print(bp1)
 
   ggsave(paste(score_folder,paste("scores_best_sets.png",sep="_"),sep='/'),bp1,height =12,width=8)
+
+  
+scores %>%
+  group_by(param_set,round) %>% mutate(score=sum(weighted_ll)) %>%
+  group_by(round) %>% filter(score==max(score)) %>%
+  #filter(metric!="no_blood") %>%
+  ggplot(aes(#alpha=interaction(param_set,round)%in%interaction(improvements$param_set,improvements$round),
+             x=interaction(param_set,round),y=-weighted_ll)) +
+  geom_bar(stat="identity",position="stack",aes(fill=metric, group=weighted_ll,
+                                                x=interaction(param_set,round,"by_metric")),color="white") +
+  geom_bar(stat="identity",position="stack",aes(fill=site, group=weighted_ll,
+                                                x=interaction(param_set,round,"by_site")),color="white") +
+  theme_minimal(base_size=16) +
+  ylab("-Score") + xlab("") +
+  geom_text(data=. %>% filter(-weighted_ll>=0),
+            aes(x=interaction(param_set,round,"by_metric"),
+                label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
+                  position = position_stack(vjust = .5),size=3) +
+  geom_text(data=. %>% filter(-weighted_ll>=0),
+            aes(x=interaction(param_set,round,"by_site"),
+                label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
+                  position = position_stack(vjust = .5),size=3) +
+  geom_text(aes(label=paste(ifelse(round<training_batches,paste("Init ",round),paste("Turbo ",round-training_batches+1)),"# ",param_set,"\nby metric",sep=""),
+                x=interaction(param_set,round,"by_metric"),group = weighted_ll,y=-10,vjust=1.2),
+            check_overlap = T,size=3) +
+   geom_text(aes(label=paste(ifelse(round<training_batches,paste("Init ",round),paste("Turbo ",round-training_batches+1)),"# ",param_set,"\nby site",sep=""),
+                 x=interaction(param_set,round,"by_site"),group = weighted_ll,y=-10,vjust=1.2),
+            check_overlap = T,size=3) +
+  labs(fill=NULL,linetype=NULL) +
+  guides(alpha="none")+
+  theme(legend.position="top",
+        legend.box = "vertical") +
+  scale_linetype_manual(values=c(2)) +
+  scale_fill_manual(values=my_pal)
 
   
   # Valley Plot
@@ -713,9 +773,9 @@ for(i in unique(track_sets$best)){
 ```{r}
 # plot parameter search to visualize shrinking trust region / convergence / tradeoff
 
-scores %>% ungroup() %>% select(round) -> pp
+pk <- read.csv("parameter_key.csv")
 
-pp %>% group_by(round) %>% count() %>% select(round) ->pp
+parameters %>% select(round) -> pp
 
 LFS <- list.dirs(path = glue('output/{exp}'),recursive = F)
 LFS <- LFS[grepl("LF",LFS)]
@@ -732,69 +792,119 @@ for(i in seq(0,length(LFS)-1,1)){
 }
 
 
-tp %>% 
+tp %>%
   mutate(unit_value=gsub("tensor\\(","",unit_value)) %>%
   mutate(unit_value=gsub("\\)","",unit_value)) %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
   mutate(emod_value=gsub("tensor\\(","",emod_value)) %>%
   mutate(emod_value=gsub("\\)","",emod_value)) %>%
   mutate(parameter=gsub("_"," ",parameter)) -> tp
-  
 
-tp %>%
-  mutate(parameter=gsub("Survival Rate","\nSurvival Rate",parameter))%>%
-  mutate(parameter=gsub("Inactivation","\nInactivation",parameter))%>%
-  mutate(parameter=gsub("Base","",parameter)) %>%
-  mutate(parameter=gsub("Falciparum","",parameter)) %>%
-  mutate(parameter=gsub("Nonspecific Anti","Nonspecific Anti-\n",parameter)) -> tp
+
+# tp %>%
+#   mutate(parameter=gsub("Survival Rate","\nSurvival Rate",parameter))%>%
+#   mutate(parameter=gsub("Inactivation","\nInactivation",parameter))%>%
+#   mutate(parameter=gsub("Base","",parameter)) %>%
+#   mutate(parameter=gsub("Falciparum","",parameter)) %>%
+#   mutate(parameter=gsub("Nonspecific Anti","Nonspecific Anti-\n",parameter)) -> tp
 
 
 param_levels <- unique(tp$parameter)
-param_levels <- param_levels[c(1,5,10,7,6,11,12,
-                               4,2,9,3,
-                               14,13,8,17,15,16)]
+param_levels <- param_levels[param_order]
+
+tp %>%
+    mutate(parameter=gsub("\n","",parameter)) %>%
+    mutate(parameter=gsub("  "," ",parameter)) %>%
+    mutate(parameter=gsub("^\\s+|\\s+$","",parameter)) %>%
+    mutate(parameter=gsub(" ","_",parameter)) -> tp
 
 
 tp %>%
-  mutate(emod_value=ifelse(transformation=="log",
-                           log10(as.numeric(emod_value)),
-                           as.numeric(emod_value)))%>%
-  ggplot(aes(x=round)) +
-  facet_wrap(~factor(parameter,levels=param_levels),
-             scales="free_y",ncol=3) +
-    geom_segment(data=.%>%group_by(parameter,round) %>%
-                   summarize(LQR=quantile(emod_value,0.25),
-                             UQR=quantile(emod_value,0.75)),
-             aes(xend=round,y=LQR,yend=UQR), linewidth=0.5)+
-   geom_point(data=.%>%group_by(parameter,round,transformation) %>%summarize(median=median(emod_value)),
-             aes(y=median,shape=transformation),fill="white")+
-  geom_point(data=.%>% filter(interaction(round,param_set)%in%interaction(improvements$round,improvements$param_set)),
-             aes(y=as.numeric(emod_value),color="improvement",shape=transformation),fill="white")+
-  geom_point(data=.%>% filter(round==best_round & param_set==best_ps),
-             aes(y=as.numeric(emod_value),color="best",shape=transformation),fill="white")+
-  geom_point(data=.%>% filter(round==0 & param_set==1),
-             aes(y=as.numeric(emod_value),color="default",shape=transformation),fill="white")+
+  left_join(pk)%>%
+  ggplot(aes(x=factor(round))) +
+  facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order]),
+             scales="free_y") +
+  geom_hline(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation=="log"),
+             aes(yintercept=log10(as.numeric(team_default)),
+                 linetype="default"))+
+  geom_segment(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation=="log") %>%
+                 group_by(round,parameter) %>% summarize(maximum=max(log10(as.numeric(emod_value))),
+                                                         minimum=min(log10(as.numeric(emod_value)))),
+               aes(y=minimum,yend=maximum,xend=factor(round)))+
+  geom_point(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation=="log") %>%
+                filter(interaction(round,param_set) %in% interaction(improvements$round,improvements$param_set)),
+             aes(y=log10(as.numeric((emod_value))),
+                 color=ifelse((round==best_round&param_set==best_ps),"best","improvement")))+
+  geom_hline(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation!="log"),
+             aes(yintercept=as.numeric(team_default),
+                 linetype="default"))+
+  geom_segment(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation!="log") %>%
+                 group_by(round,parameter) %>% summarize(maximum=max((as.numeric(emod_value))),
+                                                         minimum=min((as.numeric(emod_value)))),
+               aes(y=minimum,yend=maximum,xend=factor(round))) +
+  geom_point(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation!="log") %>%
+                filter(interaction(round,param_set) %in% interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric((emod_value)),
+                 color=ifelse((round==best_round&param_set==best_ps),"best","improvement")))+
+  geom_hline(data=.%>%filter(parameter=="InnateImmuneDistributionFlag"),
+             aes(yintercept=as.numeric(as.factor(team_default)),
+                 linetype="default"))+
+  geom_point(data=.%>%filter(parameter=="InnateImmuneDistributionFlag"),
+             aes(y=as.numeric(as.factor(emod_value))))+ 
+  geom_point(data=.%>%filter(parameter=="InnateImmuneDistributionFlag") %>%
+                filter(interaction(round,param_set) %in% interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric(as.factor(emod_value)),
+                 color=ifelse((round==best_round&param_set==best_ps),"best","improvement")))+
+  labs(color=NULL,linetype=NULL) +
+  scale_linetype_manual(values=c(2)) +
   scale_color_brewer(palette="Set1",direction = -1) +
-  scale_shape_manual(values=c(16,21))+
-  theme_minimal(base_size=14) +
-  theme(legend.position=c(1,0),
+  xlab("") + ylab("EMOD parameter value range") +
+   theme(legend.position=c(1,0),
         legend.justification = c(1,0),
-        legend.box = "horizontal",
+        legend.box = "vertical",
         legend.direction = "vertical",
         legend.title = element_text(size=12))+
   labs(color=NULL,shape="transform") + ylab("EMOD parameter value") + xlab("Batch #") -> pp
   pp
-  ggsave(paste(parameters_folder,"emod_values.png",sep='/'),pp,height = 12,width=10)
 
-  tp %>%
+  ggsave(paste(parameters_folder,"emod_values.pdf",sep='/'),pp,height = 10,width=18)
+
+tp %>%
   mutate(unit_value=as.numeric(unit_value))%>%
-  mutate(parameter=parameter) %>%
-  ggplot(aes(x=round)) +
-  facet_wrap(~factor(parameter,levels=param_levels),scales="free_y",ncol=3) +
-  geom_segment(data=.%>%group_by(parameter,round) %>%
+  left_join(pk)%>%
+  ggplot(aes(x=factor(round))) +
+  facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order]),
+             scales="free_y") +
+  geom_segment(data=.%>%filter(parameter!="InnateImmuneDistributionFlag") %>%
+                 group_by(round,parameter) %>% summarize(maximum=max((as.numeric(unit_value))),
+                                                         minimum=min((as.numeric(unit_value)))),
+               aes(y=minimum,yend=maximum,xend=factor(round))) +
+  geom_point(data=.%>%filter(parameter!="InnateImmuneDistributionFlag") %>%
+                filter(interaction(round,param_set) %in% interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric((unit_value)),
+                 color=ifelse((round==best_round&param_set==best_ps),"best","improvement")))+
+  geom_point(data=.%>%filter(parameter=="InnateImmuneDistributionFlag"),
+             aes(y=as.numeric(as.factor(emod_value))))+ 
+  geom_point(data=.%>%filter(parameter=="InnateImmuneDistributionFlag") %>%
+                filter(interaction(round,param_set) %in% interaction(improvements$round,improvements$param_set)),
+             aes(y=as.numeric(as.factor(emod_value)),
+                 color=ifelse((round==best_round&param_set==best_ps),"best","improvement")))+
+  labs(color=NULL,linetype=NULL) +
+  scale_linetype_manual(values=c(2)) +
+  scale_color_brewer(palette="Set1",direction = -1) +
+  xlab("") + ylab("Unit parameter value range") +
+   theme(legend.position=c(1,0),
+        legend.justification = c(1,0),
+        legend.box = "vertical",
+        legend.direction = "vertical",
+        legend.title = element_text(size=12)) ->pp
+  
+pp
+
+geom_segment(data=.%>%group_by(parameter,round) %>%
                  summarize(LQR=quantile(unit_value,0.25),
                            UQR=quantile(unit_value,0.75)),
-             aes(xend=round,y=LQR,yend=UQR), linewidth=0.5)+
+             aes(xend=factor(round),y=LQR,yend=UQR), linewidth=0.5)+
     geom_point(data=.%>%group_by(parameter,round) %>%summarize(median=median(unit_value)),
              aes(y=median), size=1)+
   geom_point(data=.%>% filter(interaction(round,param_set)%in%interaction(improvements$round,improvements$param_set)),
@@ -821,7 +931,7 @@ tp %>% ungroup() %>%
   ggplot(aes(x=param_set+round*batch_size,
              y=unit_value))+
   theme_minimal(base_size=12) +
-  facet_wrap(~factor(parameter,levels=param_levels),ncol=3) +
+  facet_wrap(~factor(parameter,levels=param_levels)) +
   xlab("") + ylab("Unit parameter value") +
   geom_point(aes(color=factor(round))) + 
   geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
@@ -842,27 +952,21 @@ library(GGally)
 #     pivot_wider(names_from = parameter,values_from = unit_value) %>%
 #   select(-c(param_set))%>%
 #     ggpairs(mapping = aes(color=as.factor(round)))
-  
-  
-  tp %>%     filter(parameter %in% sample(unique(tp$parameter),4))%>%
-group_by(round,parameter) %>% 
-    filter(round %% 4==0)%>% 
-    ggplot() +
-    facet_wrap(~round,ncol=1) +
-    geom_density(aes(x=unit_value,fill=parameter),
-                 alpha=0.2)+
-    scale_fill_manual(values=my_pal)
 
-library(ggdensity)    
-ps = sample(1:length(unique(tp$parameter)),2)  
-tp %>% filter(parameter %in% unique(tp$parameter)[ps]) %>%
-  filter(round%in%improvements$round)%>%
-  select(parameter,unit_value,param_set,round) %>%
-  pivot_wider(names_from=parameter,values_from = unit_value) %>%
-  ggplot(aes(x=!!sym(unique(tp$parameter)[ps[1]]),
-             y=!!sym(unique(tp$parameter)[ps[2]]))) +
-  geom_hdr() +
-  facet_wrap(~round)
+  colnames(tp)
+  
+  
+  tp %>%
+    left_join(pk %>%rename(parameter=parameter_name))%>%
+    filter(round ==max(round))%>%
+    ggplot(aes(x=unit_value)) +
+    geom_abline(slope=1,linetype=2)+
+    facet_wrap(~class,ncol=2) +
+    stat_ecdf(lwd = 1.2,aes(color=factor(parameter,levels=unique(tp$parameter)[param_order]),group=interaction(parameter,round))) +
+    scale_color_manual(values=my_pal)+ 
+    labs(color=NULL) +
+    theme(legend.position=c(1,0),
+          legend.justification = c(1,0))
 
 ```
 
