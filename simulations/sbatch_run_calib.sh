@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -A b1139
-#SBATCH -p b1139
+#SBATCH -A p32622
+#SBATCH -p long
 #SBATCH -t 120:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
