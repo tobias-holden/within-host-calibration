@@ -38,13 +38,13 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     """
     # Create a platform
     # Show how to dynamically set priority and node_group
-    platform_test=Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='12:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
-    platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='4:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500,
+    platform_test=Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='12:00:00', 
+                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500)
+    platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='short', time='4:00:00', 
+                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500,
                             sbatch_custom=f"--job-name=run_{site}")
-    platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='12:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
+    platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='12:00:00', 
+                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500)
                             
     #platform = Platform(my_manifest.platform_name, priority=priority, node_group=my_manifest.node_group)
     #print("Prompting for COMPS creds if necessary...")
