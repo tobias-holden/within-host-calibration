@@ -41,7 +41,8 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     platform_test=Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='12:00:00', 
                             account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
     platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='4:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
+                            account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500,
+                            sbatch_custom=f"--job-name=run_{site}")
     platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='12:00:00', 
                             account='b1139', modules=['singularity'], max_running_jobs=100, mem=2500)
                             
