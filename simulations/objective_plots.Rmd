@@ -197,6 +197,36 @@ sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
 obj_to_plot <- scores %>% select(metric,site) %>% distinct()
 obj_to_plot <- obj_to_plot %>% filter(metric!="no_blood")
 
+total_scores %>% left_join(parameters) %>% select(round,param_set,total_score,parameter,unit_value) %>%
+  pivot_wider(names_from=parameter,values_from = unit_value) %>%
+  ungroup() %>%
+  filter(total_score>=-95000) -> best_sets
+
+
+best_sets %>% select(-total_score)%>%
+  summarize(across(-c(param_set,round), mean)) -> center_best
+
+best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %>%
+  left_join(center_best %>% gather("parameter","center")) %>%
+  mutate(dist=abs(center-unit_value))%>% 
+  group_by(round,param_set)%>%
+  mutate(total_dist=sum(dist)) %>%
+    ungroup() %>%
+  arrange(-total_dist) %>%
+  group_by(parameter) %>% mutate(keep=dist==max(dist)) %>%
+  ungroup() %>%
+  mutate(keep = ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  group_by(round,param_set) %>%
+  mutate(keep=sum(keep)>0)%>%
+  filter(keep) -> best_sets
+
+best_sets %>% left_join(total_scores %>% ungroup() %>% mutate(rank=rank(-total_score))) %>%
+  ggplot(aes(x=unit_value,y=dist)) +
+  facet_wrap(~parameter,scales="free_x") +
+  geom_point(aes(color=factor(rank)))
+
+particles <- best_sets %>% select(round,param_set) %>% distinct()
+
 ### Severe Incidence
 plot_severe_incidence <- function(plot_particles,score_df,plot_site){
   print("Hey")
@@ -225,9 +255,13 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
       
       
       inc_df %>%
-        filter(site==plot_site) %>%
+        filter(site==plot_site)%>%
+        group_by(Age,site,round,param_set)%>%
+        summarize(Severe.Incidence=mean(Severe.Incidence))%>%
         #filter(round==max(round)) %>%
+        ungroup()%>%
         filter(Age %in% inc_ref$Age) %>%
+        group_by(param_set,round,site)%>%
         arrange(Age)%>%
         mutate(Cum.Severe.Incidence=cumsum(Severe.Incidence))%>%
         ggplot(aes(x=Age,y=Cum.Severe.Incidence)) +
@@ -255,6 +289,8 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
     remove(inc_df)
   
 }
+
+
 
 for(site in unique(obj_to_plot$site[obj_to_plot$metric=="severe_incidence"])){
   plot_severe_incidence(plot_particles=particles,
@@ -364,7 +400,7 @@ plot_annual_prevalence <- function(plot_particles,score_df,plot_site){
   theme(legend.position="bottom")+
   scale_y_continuous(limits=c(0,1))+
   scale_x_continuous(breaks = unique(annual_prev_df$Age),minor_breaks = NULL) -> pp
-  pp
+  print(pp)
     ggsave(paste(objectives_folder,paste(plot_site,"annual_prevalence.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 }
@@ -413,7 +449,7 @@ monthly_prev_df %>%
   scale_size_continuous(breaks=seq(0,1000,50)) +
   theme(legend.position="bottom") +
   labs(size="sample size",color=NULL) -> pp
-  pp  
+  print(pp)  
 ggsave(paste(objectives_folder,paste(plot_site,"prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 }

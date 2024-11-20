@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "small_PT_severe"
+exp_label = "het_PT_severe"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
