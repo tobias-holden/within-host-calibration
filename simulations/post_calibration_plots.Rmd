@@ -106,8 +106,7 @@ tp %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
   mutate(emod_value=gsub("tensor\\(","",emod_value)) %>%
   mutate(emod_value=gsub("\\)","",emod_value)) %>%
-  mutate(emod_value=ifelse(parameter!="InnateImmuneDistributionFlag",as.numeric(emod_value),
-                           emod_value)) %>%
+  mutate(emod_value=as.numeric(emod_value)) %>%
   mutate(emod_value=ifelse(transformation=="log",
                            log10(emod_value),
                            emod_value)) %>%
@@ -218,9 +217,6 @@ for(i in seq(1,length(myparams),1))
 
 ```
 
-
-
-
 ### Key Plots
 
 #### Scoring
@@ -328,10 +324,6 @@ scores %>%
   scale_color_manual(values=c("navy","gold"))
 
 ```
-
-
-
-
 
 ### Scores
 

@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "241114_homogeneous"
+exp <- "het_PT_severe"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
@@ -122,9 +122,11 @@ tp %>%
 
 
 param_levels <- unique(parameters$parameter)
-param_levels <- param_levels[c(1,5,10,7,6,11,12,
-                               4,2,9,3,
-                               14,13,8,17,15,16)]
+param_order <- c(1,5,10,7,6,11,12,14,24,
+                 4,2,9,3,
+                 13,8,15,16,17,
+                 18,19,20,21,22,23)
+param_levels <- param_levels[param_order]
 
 # unit values per parameter set
 parameters %>% select(parameter,unit_value,param_set,round)%>%spread(parameter,unit_value) -> unit_parameters
@@ -134,73 +136,18 @@ parameters %>% select(parameter,emod_value,param_set,round)%>%spread(parameter,e
 parameters %>% select(parameter,min,max,team_default,transformation) %>% distinct() -> parameter_key
 ```
 
-Heterogeneity in selected samples
+select_particles
 
 ```{r}
-total_scores %>% ungroup() %>%
-  mutate(rank=rank(-total_score)) %>%
-  arrange(rank) %>%
-  filter(rank<=100) -> top100
 
-total_scores %>%
-  filter(round<training_batches) -> randominit
+threshold_score=-95000
+threshold_score=quantile(total_scores$total_score,probs=seq(0,1,0.02),names = FALSE)[49]
 
-myparams <- colnames(unit_parameters %>% select(-c(round,param_set)))
-
-if(length(myparams)%%2!=0){
-  myparams = c(myparams,myparams[1])
-}
-
-for(i in seq(1,length(myparams),1))
-{
-  for(j in seq(1,length(myparams),1))
-  {
-    if(i<j)
-    {
-      unit_parameters %>%
-        ggplot(aes(x=!!sym(myparams[i]),
-                   y=!!sym(myparams[j]))) +
-        geom_point(data=.%>%filter(round<training_batches),
-                   aes(color="init"),alpha=0.5) +
-        geom_point(data=.%>%right_join(top100),
-                   aes(color="top100"),alpha=0.5) +
-        coord_fixed() +
-        labs(color="Unit Values")+
-        scale_color_manual(values=c("gray","red")) ->p
-      
-      print(p)
-      
-      #ggsave(paste("~/",paste(i,"vs",j,sep="_"),".png",sep=""),p,height=5,width=6)
-      # 
-       emod_parameters %>%
-        ggplot(aes(x=!!sym(myparams[i]),
-                   y=!!sym(myparams[j]))) +
-        geom_point(data=.%>%filter(round<training_batches),
-                   aes(color="init"),alpha=0.5) +
-        geom_point(data=.%>%right_join(top100),
-                   aes(color="top100"),alpha=0.5) +
-        #coord_fixed() +
-        labs(color="EMOD Values")+
-        scale_color_manual(values=c("gray","red")) ->p
-      print(p)
-    }
-  }
-}
-
-```
-
-### Objectives
-
-```{r}
-sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
-
-obj_to_plot <- scores %>% select(metric,site) %>% distinct()
-obj_to_plot <- obj_to_plot %>% filter(metric!="no_blood")
 
 total_scores %>% left_join(parameters) %>% select(round,param_set,total_score,parameter,unit_value) %>%
   pivot_wider(names_from=parameter,values_from = unit_value) %>%
   ungroup() %>%
-  filter(total_score>=-95000) -> best_sets
+  filter(total_score>=threshold_score) -> best_sets
 
 
 best_sets %>% select(-total_score)%>%
@@ -208,14 +155,17 @@ best_sets %>% select(-total_score)%>%
 
 best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %>%
   left_join(center_best %>% gather("parameter","center")) %>%
-  mutate(dist=abs(center-unit_value))%>% 
+  mutate(dist=abs(center-unit_value))%>%
   group_by(round,param_set)%>%
   mutate(total_dist=sum(dist)) %>%
     ungroup() %>%
   arrange(-total_dist) %>%
-  group_by(parameter) %>% mutate(keep=dist==max(dist)) %>%
+  group_by(parameter) %>% mutate(keep=dist==max(dist))%>%
   ungroup() %>%
-  mutate(keep = ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  mutate(keep=ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  mutate(keep=ifelse(interaction(round,param_set) %in% interaction(best_round,best_ps),
+                     TRUE,
+                     keep))%>%
   group_by(round,param_set) %>%
   mutate(keep=sum(keep)>0)%>%
   filter(keep) -> best_sets
@@ -226,6 +176,21 @@ best_sets %>% left_join(total_scores %>% ungroup() %>% mutate(rank=rank(-total_s
   geom_point(aes(color=factor(rank)))
 
 particles <- best_sets %>% select(round,param_set) %>% distinct()
+
+# total_scores %>% ungroup() %>%
+#   filter(total_score==max(total_score)) %>%
+#   select(-total_score) -> particles
+```
+
+### Objectives
+
+```{r}
+sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
+
+obj_to_plot <- scores %>% select(metric,site) %>% distinct()
+obj_to_plot <- obj_to_plot %>% filter(metric!="no_blood")
+
+
 
 ### Severe Incidence
 plot_severe_incidence <- function(plot_particles,score_df,plot_site){
