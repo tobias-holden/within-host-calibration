@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "het_PT_severe"
+exp_label = "het_PT_noSevere"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -239,14 +239,14 @@ params_241110 = [0.338892325, # Antigen switch rate
                  0.236979335, # Cytokine Gametocyte Inactivation
                  0.0,         # InnateImmuneDistributionFlag (Constant)
                  0.0,         # Innate Immune Distribution hyperparameter
-                 0.0,          # Innate Immune Distribution hyperparameter placeholder
-                 0.08869166174886942, # Severe fever inverse width
-                 0.1,                 # Severe fever threshold
-                 0.32967622160487114, # Severe parasite inverse width
-                 0.55130716080761,    # Severe parasite threshold
-                 0.834479208605029,   # Severe anemia inverse width
-                 0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                 0.09790265662515]    # Maternal antibody protection
+                 0.0]          # Innate Immune Distribution hyperparameter placeholder
+                 #0.08869166174886942, # Severe fever inverse width
+                 #0.1,                 # Severe fever threshold
+                 #0.32967622160487114, # Severe parasite inverse width
+                 #0.55130716080761,    # Severe parasite threshold
+                 #0.834479208605029,   # Severe anemia inverse width
+                 #0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                 #0.09790265662515]    # Maternal antibody protection
 
                        
 team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
@@ -296,14 +296,14 @@ team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10)
                        0.433677,         # Cytokine Gametocyte Inactivation (0.02)
                        0.0,         # InnateImmuneDistributionFlag (Constant)
                        0.0,         # Innate Immune Distribution hyperparameter (0)
-                       0.0,          # Innate Immune Distribution hyperparameter placeholder (0)
-                       0.08869166174886942, # Severe fever inverse width (27.5653580403806)
-                       0.1,                 # Severe fever threshold (3.98354299722192)
-                       0.32967622160487114, # Severe parasite inverse width (56.5754896048744)
-                       0.55130716080761,    # Severe parasite threshold (851031.287744526)
-                       0.834479208605029,   # Severe anemia inverse width (10)
-                       0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                       0.09790265662515]    # Maternal antibody protection
+                       0.0]          # Innate Immune Distribution hyperparameter placeholder (0)
+                       #0.08869166174886942, # Severe fever inverse width (27.5653580403806)
+                       #0.1,                 # Severe fever threshold (3.98354299722192)
+                       #0.32967622160487114, # Severe parasite inverse width (56.5754896048744)
+                       #0.55130716080761,    # Severe parasite threshold (851031.287744526)
+                       #0.834479208605029,   # Severe anemia inverse width (10)
+                       #0.565754896048744,   # Severe anemia threshold (4.50775824973078)
+                       #0.09790265662515]    # Maternal antibody protection
                        
 
 params_241013 = [0.063819259,
