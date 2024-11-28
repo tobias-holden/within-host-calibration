@@ -139,15 +139,14 @@ parameters %>% select(parameter,min,max,team_default,transformation) %>% distinc
 Heterogeneity in selected samples
 
 ```{r,eval=F}
-total_scores %>% ungroup() %>%
-  mutate(rank=rank(total_score)) %>%
-  arrange(rank) %>%
-  filter(rank<=100) -> top100
+threshold_score=-95000
+threshold_score=quantile(total_scores$total_score,probs=seq(0,1,0.02),names = FALSE)[49]
+
 
 total_scores %>% left_join(parameters) %>% select(round,param_set,total_score,parameter,unit_value) %>%
   pivot_wider(names_from=parameter,values_from = unit_value) %>%
   ungroup() %>%
-  filter(total_score>=-95000) -> best_sets
+  filter(total_score>=threshold_score) -> best_sets
 
 
 best_sets %>% select(-total_score)%>%
@@ -155,18 +154,21 @@ best_sets %>% select(-total_score)%>%
 
 best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %>%
   left_join(center_best %>% gather("parameter","center")) %>%
-  mutate(dist=abs(center-unit_value))%>% 
+  mutate(dist=abs(center-unit_value))%>%
   group_by(round,param_set)%>%
   mutate(total_dist=sum(dist)) %>%
     ungroup() %>%
   arrange(-total_dist) %>%
-  group_by(parameter) %>% mutate(keep=dist==max(dist)) %>%
+  mutate(keep=ifelse(param_set==best_ps & round==best_round,TRUE,FALSE))%>%
+  group_by(parameter) %>% mutate(keep=dist==max(dist))%>%
   ungroup() %>%
-  mutate(keep = ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  mutate(keep=ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
+  mutate(keep=ifelse(interaction(round,param_set) %in% interaction(best_round,best_ps),
+                     TRUE,
+                     keep))%>%
   group_by(round,param_set) %>%
   mutate(keep=sum(keep)>0)%>%
   filter(keep) -> best_sets
-
 total_scores %>%
   filter(round<training_batches) -> randominit
 
@@ -232,7 +234,8 @@ total_scores %>%
   geom_point() +
   geom_point(data=.%>%filter(round==0&param_set==1),
              aes(color="default"))+
-  
+  geom_point(data=.%>%filter(interaction(round,param_set)%in%interaction(best_sets$round,best_sets$param_set)),
+             aes(color="top"))+
   geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
              aes(color="best"))+
   scale_y_log10() +labs(color=NULL) +
@@ -248,7 +251,8 @@ objective_scores%>%
   facet_wrap(~metric,scales="free_y")+
   geom_point(data=.%>%filter(round==0&param_set==1),
              aes(color="default"))+
-  
+  geom_point(data=.%>%filter(interaction(round,param_set)%in%interaction(best_sets$round,best_sets$param_set)),
+             aes(color="top"))+
   geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
              aes(color="best"))+
   scale_y_log10() +labs(color=NULL) +
@@ -272,6 +276,8 @@ unit_parameters %>%
   geom_point() +
   geom_point(data=.%>%filter(round==0&param_set==1),
              aes(color="default"))+
+  geom_point(data=.%>%filter(interaction(round,param_set)%in%interaction(best_sets$round,best_sets$param_set)),
+             aes(color="top"))+
   geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
              aes(color="best"))+
   scale_y_continuous(limits = c(0,1)) +
@@ -289,6 +295,8 @@ emod_parameters %>%
   geom_point() +
   geom_point(data=.%>%filter(round==0&param_set==1),
              aes(color="default"))+
+  geom_point(data=.%>%filter(interaction(round,param_set)%in%interaction(best_sets$round,best_sets$param_set)),
+             aes(color="top"))+
   geom_point(data=.%>%filter(round==best_round&param_set==best_ps),
              aes(color="best"))+
   labs(color=NULL)+
@@ -375,11 +383,13 @@ scores %>%
   geom_hline(data=.%>%filter(ps!=1) %>% filter(param_set==best_ps & round==best_round),
              aes(yintercept=-score,linetype="best"))+
   geom_point(alpha=0.33)+
+  geom_point(data=.%>%filter(interaction(round,param_set)%in%interaction(best_sets$round,best_sets$param_set)),
+             aes(color="top"))+
   geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
              aes(color="best"))+
   ylab("Total Weighted Score") + xlab("#") +
   theme_minimal(base_size=16) +
-  scale_color_manual(values=my_pal[best_round+1]) +
+  scale_color_brewer(palette="Set1") +
   scale_linetype_manual(values=c(2,1)) +
   scale_y_log10()+
   labs(linetype=NULL,color=NULL)-> bp
@@ -407,6 +417,7 @@ scores %>%
              aes(yintercept=score,linetype="default"))+
   geom_hline(data=.%>%filter(ps!=1) %>% filter(score==min(score)),
              aes(yintercept=score,linetype="best"))+
+
   geom_point(aes(color=my_pal[plotcolor]))+
   ylab("Total Score") + xlab("#") +
   theme_minimal(base_size=16) +
@@ -592,45 +603,47 @@ scores %>%
   theme(legend.position="top",
         legend.box = "vertical") +
   scale_linetype_manual(values=c(2)) +
-  scale_fill_brewer(palette="Set1") -> bp1
-  
-  print(bp1)
-
-  ggsave(paste(score_folder,paste("scores_best_sets.pdf",sep="_"),sep='/'),bp1,height =12,width=8)
+  scale_fill_brewer(palette="Set1") 
 
   
 scores %>%
   group_by(param_set,round) %>% mutate(score=sum(weighted_ll)) %>%
-  group_by(round) %>% filter(score==max(score)) %>%
-  #filter(metric!="no_blood") %>%
-  ggplot(aes(#alpha=interaction(param_set,round)%in%interaction(improvements$param_set,improvements$round),
-             x=interaction(param_set,round),y=-weighted_ll)) +
-  geom_bar(stat="identity",position="stack",aes(fill=metric, group=weighted_ll,
-                                                x=interaction(param_set,round,"by_metric")),color="white") +
-  geom_bar(stat="identity",position="stack",aes(fill=site, group=weighted_ll,
-                                                x=interaction(param_set,round,"by_site")),color="white") +
+  group_by(round) %>% filter(score==max(score)) %>% ungroup() -> temp
+
+temp %>%
+  mutate(filltype="by_site") %>% 
+  rbind.data.frame(temp%>%mutate(filltype="by_metric"))%>%
+  ggplot(aes(x=interaction(filltype,param_set,round),y=-weighted_ll))+
+  geom_text(aes(label=paste(ifelse(round<training_batches,paste("Init ",round),paste("Turbo ",round-training_batches+1))," # ",param_set,"\n",filltype,sep=""),
+                group = weighted_ll,y=-10),
+            vjust=1.2,check_overlap = T,size=3) +
+  geom_bar(data=.%>%filter(filltype=="by_metric"),stat="identity",position="stack",
+           aes(fill=metric, group=weighted_ll),color="white",width=0.7) +
+  geom_bar(data=.%>%filter(filltype=="by_site"),stat="identity",position="stack",
+           aes(fill=site, group=weighted_ll),color="white",width = 0.7) +
   theme_minimal(base_size=16) +
   ylab("-Score") + xlab("") +
-  geom_text(data=. %>% filter(-weighted_ll>=0),
-            aes(x=interaction(param_set,round,"by_metric"),
-                label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
-                  position = position_stack(vjust = .5),size=3) +
-  geom_text(data=. %>% filter(-weighted_ll>=0),
-            aes(x=interaction(param_set,round,"by_site"),
-                label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
-                  position = position_stack(vjust = .5),size=3) +
-  geom_text(aes(label=paste(ifelse(round<training_batches,paste("Init ",round),paste("Turbo ",round-training_batches+1)),"# ",param_set,"\nby metric",sep=""),
-                x=interaction(param_set,round,"by_metric"),group = weighted_ll,y=-10,vjust=1.2),
-            check_overlap = T,size=3) +
-   geom_text(aes(label=paste(ifelse(round<training_batches,paste("Init ",round),paste("Turbo ",round-training_batches+1)),"# ",param_set,"\nby site",sep=""),
-                 x=interaction(param_set,round,"by_site"),group = weighted_ll,y=-10,vjust=1.2),
-            check_overlap = T,size=3) +
+  # geom_text(data=. %>% filter(-weighted_ll>=0),
+  #           aes(x=interaction("by_metric",param_set,round),
+  #               label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
+  #                 position = position_stack(vjust = .5),size=3) +
+  # geom_text(data=. %>% filter(-weighted_ll>=0),
+  #           aes(x=interaction("by_site",param_set,round),
+  #               label=ifelse(abs(weighted_ll)>1000,round(weighted_ll,2),""),group = weighted_ll),
+  #                 position = position_stack(vjust = .5),size=3) +
   labs(fill=NULL,linetype=NULL) +
+  geom_vline(data=NULL, xintercept=seq(2.5,2*length(unique(temp$round)),2))+
   guides(alpha="none")+
   theme(legend.position="top",
-        legend.box = "vertical") +
+        axis.text.x=element_blank(),
+        legend.box = "vertical",
+        panel.grid.major.x = element_blank()) +
   scale_linetype_manual(values=c(2)) +
-  scale_fill_manual(values=my_pal)
+  scale_fill_manual(values=my_pal)-> bp1
+  
+  print(bp1)
+
+  ggsave(paste(score_folder,paste("scores_best_sets.pdf",sep="_"),sep='/'),bp1,height =12,width=16)
 
   
   # Valley Plot
@@ -815,7 +828,7 @@ tp %>%
 tp %>%
   left_join(pk)%>%
   ggplot(aes(x=factor(round))) +
-  facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order]),
+  facet_wrap(~factor(parameter,unique(tp$parameter[param_order])),
              scales="free_y") +
   geom_hline(data=.%>%filter(parameter!="InnateImmuneDistributionFlag" & transformation=="log"),
              aes(yintercept=log10(as.numeric(team_default)),
@@ -894,26 +907,6 @@ tp %>%
   
 pp
 
-geom_segment(data=.%>%group_by(parameter,round) %>%
-                 summarize(LQR=quantile(unit_value,0.25),
-                           UQR=quantile(unit_value,0.75)),
-             aes(xend=factor(round),y=LQR,yend=UQR), linewidth=0.5)+
-    geom_point(data=.%>%group_by(parameter,round) %>%summarize(median=median(unit_value)),
-             aes(y=median), size=1)+
-  geom_point(data=.%>% filter(interaction(round,param_set)%in%interaction(improvements$round,improvements$param_set)),
-             aes(y=as.numeric(unit_value),color="improvement"))+  
-  geom_point(data=.%>% filter(round==best_round & param_set==best_ps),
-             aes(y=as.numeric(unit_value),color="best"))+
-  scale_y_continuous(limits=c(0,1))+
-  scale_color_brewer(palette="Set1",direction = -1) +
-  theme_minimal(base_size=14) +
-  theme(legend.position=c(1,0),
-        legend.justification = c(1,0),
-        legend.box = "horizontal",
-        legend.direction = "vertical",
-        legend.title = element_text(size=12))+
-  labs(color=NULL) + ylab("Unit parameter value") + xlab("Batch #") -> pp
-  pp
   ggsave(paste(parameters_folder,"unit_values.pdf",sep='/'),pp,height = 12,width=10)
   
   
@@ -924,7 +917,7 @@ tp %>% ungroup() %>%
   ggplot(aes(x=param_set+round*batch_size,
              y=unit_value))+
   theme_minimal(base_size=12) +
-  facet_wrap(~factor(parameter,levels=param_levels)) +
+  facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order])) +
   xlab("") + ylab("Unit parameter value") +
   geom_point(aes(color=factor(round))) + 
   geom_point(data=.%>%filter(param_set==best_ps & round==best_round),
@@ -935,7 +928,7 @@ tp %>% ungroup() %>%
         legend.box="horizontal") +
   guides(color="none")+
   scale_shape_manual(values=c(21,16))+
-  scale_color_manual(values=c(my_pal[seq(1,max(tp$round)+1)],"black","red")) -> pp
+  scale_color_manual(values=c(c(rep("gray",training_batches),my_pal[seq(1,max(tp$round)+1)]))) -> pp
   pp
   ggsave(paste(parameters_folder,"unit_values_all.pdf",sep='/'),pp,height = 12,width=10)
   
@@ -951,15 +944,40 @@ library(GGally)
   
   tp %>%
     left_join(pk %>%rename(parameter=parameter_name))%>%
-    filter(round ==max(round))%>%
-    ggplot(aes(x=unit_value)) +
+    ggplot(aes(x=unit_value,
+               color=factor(ifelse(round<training_batches,
+                                   paste("Init",round+1),
+                                   paste("Turbo",round-training_batches+1))))) +
     geom_abline(slope=1,linetype=2)+
-    facet_wrap(~class,ncol=2) +
-    stat_ecdf(lwd = 1.2,aes(color=factor(parameter,levels=unique(tp$parameter)[param_order]),group=interaction(parameter,round))) +
-    scale_color_manual(values=my_pal)+ 
+    facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order])) +
+    stat_ecdf(lwd = 1.2,aes(group=interaction(parameter,round))) +
+    scale_color_manual(values=c(rep("gray",training_batches),my_pal[-1])) +
     labs(color=NULL) +
-    theme(legend.position=c(1,0),
-          legend.justification = c(1,0))
+    theme_minimal(base_size=12)+
+    theme(legend.position="right")
+  
+    ggsave(paste(parameters_folder,"tracking_unit_values.pdf",sep='/'),height = 10,width=18)
+
+  
+   tp %>%
+    left_join(pk %>%rename(parameter=parameter_name))%>%
+    #filter(round ==max(round))%>%
+    ggplot(aes(color=factor(ifelse(round<training_batches,paste("Init",round+1),paste("Turbo",round-training_batches+1))))) +
+    facet_wrap(~factor(parameter,levels=unique(tp$parameter)[param_order]),scales="free_x") +
+    stat_ecdf(data=.%>%filter(parameter=="InnateImmuneDistributionFlag"),lwd = 1.2,
+              aes(group=interaction(parameter,round),
+                  x=as.numeric(as.factor(emod_value)))) +
+    stat_ecdf(data=.%>%filter(parameter!="InnateImmuneDistributionFlag"),lwd = 1.2,
+              aes(group=interaction(parameter,round),
+                  x=ifelse(transformation=="log",
+                           log10(as.numeric(emod_value)),
+                           as.numeric(emod_value)))) +
+    scale_color_manual(values=c(rep("gray",training_batches),my_pal[-1])) +
+    labs(color=NULL) +
+    theme_minimal(base_size=12)+
+    theme(legend.position="right")
+    
+    ggsave(paste(parameters_folder,"tracking_emod_values.pdf",sep='/'),height = 10,width=18)
 
 ```
 
@@ -992,12 +1010,13 @@ for(i in seq(1,length(parameters),2)){
     facet_wrap(~metric) +
     theme_minimal(base_size=12)+
     geom_point(aes(color=log10(-metric_score),
-                   alpha=(round==max(round)))) +
+                   alpha=(param_set %in% unique(best_sets$param_set + best_sets$round*batch_size)))) +
     geom_point(data=.%>%filter(param_set==best_ps+best_round*batch_size),
                aes(shape="best"),color="black") +
     scale_color_distiller(palette="Spectral") +
     labs(color="Log10(-Score)",shape=NULL,alpha=NULL) +
     guides(alpha="none")+
+    scale_alpha_manual(values=c(0.2,1.0))+
     scale_shape_manual(values=c(21,16))+
     theme(legend.position="right")-> pp
   
@@ -1021,10 +1040,11 @@ for(i in seq(1,length(parameters),2)){
                y=!!sym(parameters[j]))) +
     theme_minimal(base_size=16)+
     geom_point(aes(color=log10(-total_score),
-                   alpha=round==max(round))) +
+                   alpha=(param_set %in% unique(best_sets$param_set + best_sets$round*batch_size)))) +
     geom_point(data=.%>%filter(param_set==best_ps+best_round*batch_size),
                aes(shape="best"),color="black") +
     scale_color_distiller(palette="Spectral") +
+    scale_alpha_manual(values=c(0.2,1.0))+
     labs(color="Log10(-Score)",shape=NULL,alpha=NULL) +
     guides(alpha="none")+
     scale_shape_manual(values=c(21,16))-> pp

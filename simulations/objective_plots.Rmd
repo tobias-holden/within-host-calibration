@@ -160,6 +160,7 @@ best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %
   mutate(total_dist=sum(dist)) %>%
     ungroup() %>%
   arrange(-total_dist) %>%
+  mutate(keep=ifelse(param_set==best_ps & round==best_round,TRUE,FALSE))%>%
   group_by(parameter) %>% mutate(keep=dist==max(dist))%>%
   ungroup() %>%
   mutate(keep=ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
@@ -177,9 +178,80 @@ best_sets %>% left_join(total_scores %>% ungroup() %>% mutate(rank=rank(-total_s
 
 particles <- best_sets %>% select(round,param_set) %>% distinct()
 
+
+best_sets %>% left_join(scores) %>%
+  ggplot(aes(x=gsub("-\n","",
+                    gsub("Log10","",
+                         gsub(" ","\n",
+                              gsub("  ","\n",
+                                   factor(parameter,levels=unique(best_sets$parameter)[param_order]))))),y=unit_value)) +
+  geom_line(aes(group=interaction(round,param_set)))+
+  coord_polar() 
+
+best_sets %>% ungroup() %>% left_join(parameters) %>% select(param_set,round,parameter,unit_value) %>%
+  pivot_wider(names_from = parameter,values_from=unit_value) %>%
+  select(-c(param_set,round)) %>%
+  kmeans(centers=2) -> clustered
+
+best_sets %>% left_join(parameters) %>% select(param_set,round,parameter,unit_value) %>%
+  pivot_wider(names_from = parameter,values_from=unit_value) %>% ungroup() -> bs_cluster
+
+bs_cluster$cluster=clustered$cluster
+
+
+#GGally::ggpairs(bs_cluster %>% select(-c(param_set,round)) %>% relocate(cluster),mapping = aes(color=factor(cluster)))
+
+clusters <- best_sets %>% left_join(bs_cluster %>% select(param_set,round,cluster)) %>% select(param_set,round,cluster) %>% distinct()
+
+
+bs_cluster %>%
+  gather("parameter","unit_value",-c(param_set,round,cluster)) %>%
+  mutate(parameter=gsub("-\n","",
+                    gsub("Log10","",
+                         gsub(" ","\n",
+                              gsub("  ","\n",
+                                   factor(parameter,levels=unique(best_sets$parameter)[param_order])))))) -> bs_cluster
+bs_cluster %>%  
+  ggplot(aes(x=factor(parameter,levels=unique(bs_cluster$parameter)[param_order]),
+             y=unit_value)) +
+  geom_line(aes(group=interaction(round,param_set),
+                color=factor(cluster)))+
+  coord_polar() +
+  facet_wrap(~cluster) +
+  theme(axis.text = element_text(size=6))
+
 # total_scores %>% ungroup() %>%
 #   filter(total_score==max(total_score)) %>%
 #   select(-total_score) -> particles
+
+best_sets %>% left_join(scores) %>% select(round,parameter,site,metric,ll,my_weight) %>%
+  group_by(round,param_set,site,metric)%>%summarize(weighted_ll=ll*my_weight) %>%
+  ungroup() %>% distinct() %>%
+mutate(objective=interaction(metric,site)) %>%
+  select(-c(site,metric)) %>%
+  pivot_wider(names_from = objective,values_from=weighted_ll) %>% ungroup() -> score_cluster
+
+score_cluster %>% select(-c(param_set,round)) %>% 
+  kmeans(centers=3) -> clustered
+
+score_cluster$cluster <- clustered$cluster
+
+clusters <- best_sets %>% left_join(score_cluster %>% select(param_set,round,cluster)) %>% select(param_set,round,cluster) %>% distinct()
+
+
+score_cluster %>%
+  gather("objective","score",-c(param_set,round,cluster)) %>% 
+  mutate(objective=gsub("\\.","\n",objective))-> score_cluster
+
+score_cluster %>%  
+  filter(!grepl("no_blood",objective))%>%
+  ggplot(aes(x=factor(objective),
+             y=-log10(-score))) +
+  geom_line(aes(group=interaction(round,param_set),
+                color=factor(cluster)))+
+  coord_polar() +
+  #facet_wrap(~cluster) +
+  theme(axis.text = element_text(size=6))
 ```
 
 ### Objectives
@@ -229,12 +301,13 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
         group_by(param_set,round,site)%>%
         arrange(Age)%>%
         mutate(Cum.Severe.Incidence=cumsum(Severe.Incidence))%>%
+        left_join(clusters)%>%
         ggplot(aes(x=Age,y=Cum.Severe.Incidence)) +
         ggtitle(toupper(plot_site))+
         theme_minimal(base_size=16) +
-        geom_line(aes(group=interaction(round,param_set),
+        geom_line(aes(group=interaction(param_set,round),
                       #color=ifelse(round<training_batches,"gray",my_pal[round+1]),
-                      color=factor(param_set),
+                      color=interaction(cluster),
                       linewidth=round==max(round),
                       alpha=round==max(round))) +
         geom_point(data=inc_ref%>%filter(Site==plot_site),aes(x=Age,y=cumulative_severe_incidence,
@@ -254,8 +327,6 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
     remove(inc_df)
   
 }
-
-
 
 for(site in unique(obj_to_plot$site[obj_to_plot$metric=="severe_incidence"])){
   plot_severe_incidence(plot_particles=particles,
@@ -295,13 +366,12 @@ plot_incidence <- function(plot_particles,score_df,plot_site){
   
   inc_df %>%
     filter(site==plot_site) %>%
-    filter((param_set==1 & round==0) | round==max(round)) %>%
+    left_join(clusters)%>%
     ggplot(aes(x=Age,y=Incidence)) +
     ggtitle(toupper(plot_site))+
     theme_minimal(base_size=16) +
-    geom_line(aes(group=interaction(round,param_set),color=interaction(param_set,round),
-                  linewidth=round==max(round),
-                  alpha=round==max(round))) +
+    geom_line(aes(group=interaction(round,param_set),color=factor(cluster)),
+                  linewidth=1) +
     geom_point(data=inc_ref%>%filter(Site==plot_site),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
     #scale_color_identity() +
     scale_y_continuous(minor_breaks = seq(1,20,1))+
@@ -351,15 +421,17 @@ plot_annual_prevalence <- function(plot_particles,score_df,plot_site){
   summarize(PrevalenceLow=min(Prevalence),
             PrevalenceHigh=max(Prevalence),
             Prevalence=mean(Prevalence)) %>%
+  ungroup() %>%
+  left_join(clusters)%>%
   ggplot(aes(x=Age,y=Prevalence)) +
   theme_bw(base_size=16) +
-  geom_line(aes(group=interaction(round,param_set),color=factor(param_set)),
-            alpha=1) + 
+  geom_line(aes(group=interaction(round,param_set),color=factor(cluster)),
+            alpha=1,linewidth=1) + 
   geom_point(data=annual_prev_ref,
              aes(x=agebin,y=prevalence,
                  shape="reference",size=total_sampled)) +
-  labs(color="Round", shape=NULL) +
-  guides(size="none",linewidth="none",color="none")+
+  labs(color=NULL, shape=NULL,size=NULL) +
+  guides(linewidth="none",shape="none")+
   ggtitle(plot_site) +
   theme_minimal(base_size=16) +
   theme(legend.position="bottom")+
@@ -406,14 +478,14 @@ monthly_prev_df %>%
   ggplot(aes(x=agebin, y=prevalence)) +
   facet_grid(site~month.abb[month]) +
   geom_line(aes(group=interaction(round,param_set,lex.order = T),
-                color=interaction(round,param_set))) +
+                color=interaction(param_set,round)),linewidth=1) +
   geom_point(data=monthly_prev_ref %>% mutate(site=tolower(Site)),
              aes(size=total_sampled))+
   theme_minimal(base_size=16) +
   #scale_color_identity() +
   scale_size_continuous(breaks=seq(0,1000,50)) +
   theme(legend.position="bottom") +
-  labs(size="sample size",color=NULL) -> pp
+  labs(size=NULL,color=NULL) -> pp
   print(pp)  
 ggsave(paste(objectives_folder,paste(plot_site,"prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
@@ -464,7 +536,7 @@ plot_asexual_densities <- function(plot_particles,score_df,plot_site){
     ggplot(aes(x=densitybin,y=asexual_par_dens_freq)) +
     facet_grid(agebin~month.abb[month],scales="free") +
     geom_line(aes(group=interaction(round,param_set),
-                  color=interaction(round,param_set)))+
+                  color=interaction(param_set,round)),linewidth=1)+
     geom_point(data=ref_dens,aes(size=bin_total_asex))+
     scale_x_log10(breaks=unique(ref_dens$densitybin)) +
     #scale_color_identity() +
@@ -524,7 +596,7 @@ plot_gametocyte_densities <- function(plot_particles,score_df,plot_site){
     ggplot(aes(x=densitybin,y=gametocyte_dens_freq)) +
     facet_grid(agebin~month.abb[month],scales="free") +
     geom_line(aes(group=interaction(round,param_set),
-                  color=interaction(round,param_set)))+
+                  color=interaction(param_set,round)),linewidth=1)+
     geom_point(data=ref_dens,aes(size=bin_total_gamet))+
     scale_x_log10(breaks=unique(ref_dens$densitybin)) +
     #scale_color_identity() +
@@ -604,8 +676,8 @@ plot_infectiousness <- function(plot_particles,score_df,plot_site){
         facet_wrap(interaction(month.name[month],Site,sep=" in ")~agebin) +
         
         #scale_x_log10(breaks=unique(inf_df$densitybin)) +
-        geom_point(aes(color=factor(paste("Round",round,"#",param_set)),
-                       alpha=0.3)) +
+        geom_point(aes(color=interaction(param_set,round)),
+                   alpha=0.3) +
         geom_point(data=inf_ref %>% filter(site==s & agebin!=0.5)%>%
                      #filter(densitybin>0)%>%
                      filter(freq_frac_infect>0)%>%
