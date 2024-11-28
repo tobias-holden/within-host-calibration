@@ -101,16 +101,16 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         if torch.is_tensor(IIV2):
           IIV2 = IIV2.numpy()
         
-        print(IIV)
-        print(IIVF)
-        print(IIV1)
-        print(IIV2)
+        #print(IIV)
+        #print(IIVF)
+        #print(IIV1)
+        #print(IIV2)
         distributions.append(("InnateImmune",
                               IIVF,
                               float(IIV1),
                               float(IIV2)))
-        print(distributions)
-        print(type(distributions))
+        #print(distributions)
+        #print(type(distributions))
         set_demog_distributions(f'my_demographics_vital_{sets}.json', distributions)
         # with open(os.path.join(manifest.input_files_path,"demographics_files/my_demographics_vital.json"), 'w', encoding='utf-8') as f:
         #     json.dump(demog, f, ensure_ascii=False, indent=4)
@@ -138,16 +138,16 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         if torch.is_tensor(IIV2):
           IIV2 = IIV2.numpy()
         
-        print(IIV)
-        print(IIVF)
-        print(IIV1)
-        print(IIV2)
+        #print(IIV)
+        #print(IIVF)
+        #print(IIV1)
+        #print(IIV2)
         distributions.append(("InnateImmune",
                               IIVF,
                               float(IIV1),
                               float(IIV2)))
-        print(distributions)
-        print(type(distributions))
+        #print(distributions)
+        #print(type(distributions))
         set_demog_distributions(f'my_demographics_cohort_{sets}.json', distributions)
         # with open(os.path.join(manifest.input_files_path,"demographics_files/my_demographics_cohort.json"), 'w', encoding='utf-8') as f:
         #     json.dump(demog, f, ensure_ascii=False, indent=4)

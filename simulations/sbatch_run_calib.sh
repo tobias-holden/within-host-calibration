@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A p32622
-#SBATCH -p long
+#SBATCH -p "long"
 #SBATCH -t 120:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,4 +15,4 @@ module purge all
 
 # Navigate to project directory
 
-/projects/b1139/environments/emodpy-torch/bin/python run_calib.py
+python run_calib.py

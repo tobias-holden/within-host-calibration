@@ -16,10 +16,3 @@ parameter_id,parameter_label,parameter_name,min,max,transform,class,description,
 15,Innate Immune Distribution Flag,InnateImmuneDistributionFlag,0,4.9,none,immunity,NA,demog,NA,NA,NA,0
 16,InnateImmuneDistribution1,InnateImmuneDistribution1,0,1,none,immunity,NA,demog,NA,NA,NA,0
 17,InnateImmuneDistribution2,InnateImmuneDistribution2,0,1,none,immunity,NA,demog,NA,NA,NA,0
-18,Fever_Severe_Inverse_Width,Fever_Severe_Inverse_Width,0,50,none,severe,NA,float,,,30.323,27.56535804
-19,Fever_Severe_Threshold,Fever_Severe_Threshold,2.5,7,none,severe,NA,float,,,3.8719,3.983542997
-20,Parasite_Severe_Inverse_Width,Parasite_Severe_Inverse_Width,0,100,none,severe,NA,float,,,7.931,56.5754896
-21,Parasite_Severe_Threshold,Parasite_Severe_Threshold,100000,1000000,none,severe,NA,float,,,317351,851031.2877
-22,Anemia_Severe_Inverse_Width,Anemia_Severe_Inverse_Width,0,100,none,severe,NA,float,,,100,10
-23,Anemia_Severe_Threshold,Anemia_Severe_Threshold,3,20,none,severe,NA,float,,,5,4.50775825
-24,Maternal_Antibody_Protection,Maternal_Antibody_Protection,0,1,none,severe,NA,float,,,0.12396744973429291,0.097902657
