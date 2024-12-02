@@ -30,7 +30,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "241110_13site_20seed"
+exp_label = "test_severe_3MII"
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -114,9 +114,9 @@ class Problem:
         params=Y['param_set']
         Y = Y['ll']
         #Ym=Ym['ll']
-        if self.n==0:
-            # Mask score for team default X_prior
-            Y[0]= float("nan")
+        # if self.n==0:
+        #     # Mask score for team default X_prior
+        #     Y[0]= float("nan")
          #   Ym[0]= float("nan")
             
         xc = []
@@ -222,83 +222,18 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 
 # Usual random init sample, with team default Xprior
 
-params_241110 = [0.338892325, # Antigen switch rate
-                 0.171487813, # Base gametocyte fraction male
-                 0.245767666, # Base gametocyte mosquito survival rate
-                 0.75732431,  # Base gametocyte production rate
-                 0.069400287, # Falciparum MSP Variants
-                 0.101334176, # Falciparum Nonspecific types
-                 0.795278206, # Falciparum PfEMP1 variants
-                 0.984605496, # Fever iRBC kill rate
-                 0.835921451, # Gametocyte stage survival rate
-                 0.473425178, # MSP1 Merozoite kill fraction
-                 0.809004543, # Nonspecific antibody growth rate factor
-                 0.08839056,  # Nonspecific antigenicity factor
-                 0.283015895, # Pyrogenic Threshold
-                 1.0,         # Max individual infections = 20 (not under calib)
-                 0.236979335] # Cytokine Gametocyte Inactivation
-
                        
-team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
-                       0.166666666667,  # Gametocyte sex ratio (0.2) 
-                       0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-                       0.394437557888,  # Base gametocyte production rate (0.0615)
-                       0.50171665944,   # Falciparum MSP variants (32)
-                       0.0750750750751, # Falciparum nonspecific types (76)
-                       0.704339142192,  # Falciparum PfEMP1 variants (1070)
-                       0.28653200892,   # Fever IRBC kill rate (1.4)
-                       0.584444444444,  # Gametocyte stage survival rate (0.5886)
-                       0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-                       0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-                       0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-                       0.492373751573,  # Pyrogenic threshold (15000)
-                       -1.0,            # Max Individual Infections (3)
-                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677]        # Cytokine Gametocyte Inactivation (0.02)
-
-team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10) 
-                       0.166666666667,  # Gametocyte sex ratio (0.2) 
-                       0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-                       0.394437557888,  # Base gametocyte production rate (0.0615)
-                       0.50171665944,   # Falciparum MSP variants (32)
-                       0.0750750750751, # Falciparum nonspecific types (76)
-                       0.704339142192,  # Falciparum PfEMP1 variants (1070)
-                       0.28653200892,   # Fever IRBC kill rate (1.4)
-                       0.584444444444,  # Gametocyte stage survival rate (0.5886)
-                       0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-                       0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-                       0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-                       0.492373751573,  # Pyrogenic threshold (15000)
-                       1.0,            # Max Individual Infections (20)
-                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677]        # Cytokine Gametocyte Inactivation (0.02)
-
-params_241013 = [0.063819259,
-                0.311834632,
-                0.265195263,
-                0.709026171,
-                0.159035939,
-                0.176874946,
-                0.733520807,
-                0.976217168,
-                0.833900254,
-                0.449908713,
-                0.694589051,
-                0.129187744,
-                0.294669431,
-                #1.000000000, # Max Individual Infections (20)
-                #0.410575954,
-                #0.391240481,
-                0.199995755]
+team_default_params = [0.08869166174886942, # Severe fever inverse width (27.5653580403806)
+                       0.1,                 # Severe fever threshold (3.98354299722192)
+                       0.32967622160487114, # Severe parasite inverse width (56.5754896048744)
+                       0.55130716080761,    # Severe parasite threshold (851031.287744526)
+                       0.834479208605029,   # Severe anemia inverse width (10)
+                       0.565754896048744]   # Severe anemia threshold (4.50775824973078)   
                 
 
 bo.initRandom(init_size,
               n_batches = init_batches,
-              Xpriors = [team_default_params,
-                         team_default_params20,
-                         params_241110])
+              Xpriors = [team_default_params])
 
 # Run the optimization loop
 bo.run()

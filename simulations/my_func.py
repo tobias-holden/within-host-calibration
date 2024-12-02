@@ -44,7 +44,7 @@ def my_func(X,wdir):
           shutil.rmtree(os.path.join(manifest.simulation_output_filepath,my_site))
 
       coord_df=load_coordinator_df()
-      ns = coord_df.at[my_site, 'nSims']
+      ns = int(coord_df.at[my_site, 'nSims'])
       submit_sim(site=my_site, X=df, nSims=ns)
   print("waiting for outputs...", flush=True)
   

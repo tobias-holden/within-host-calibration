@@ -112,7 +112,7 @@ def build_burnin_df(exp_id: str, platform,serialize_days):
     return df
     
 ### TODO idmtools probably has a predefined shell template   
-def shell_header_quest(A='b1139', p='b1139', t='02:00:00', N=1, ntasks_per_node=1, mem=8000, job_name='myjob',
+def shell_header_quest(A='p32622', p='short', t='02:00:00', N=1, ntasks_per_node=1, mem=8000, job_name='myjob',
                        arrayJob=None, c=1):
     """Requires a 'log' subfolder to write in .err and .out files, alternatively log/ needs to be removed"""
     if not os.path.exists('log'):

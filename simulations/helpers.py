@@ -20,7 +20,7 @@ from emod_api.interventions.common import BroadcastEvent
 import manifest as manifest
 
 def update_sim_random_seed(simulation, value):
-    simulation.task.config.parameters.Run_Number = value
+    simulation.task.config.parameters.Run_Number = int(value)
     return {"Run_Number": value}
 
 def mAb_vs_EIR(EIR):
@@ -64,7 +64,7 @@ def set_param_fn(config):
     """
     config = malconf.set_team_defaults(config, manifest)
     # config = set_config.set_config(config)
-    config.parameters.Max_Individual_Infections = 20
+    config.parameters.Max_Individual_Infections = 3
     config.parameters.Innate_Immune_Variation_Type = "NONE"
     config.parameters.Enable_Birth = 1
     # #config.parameters.Enable_Coinfection = 1
@@ -102,14 +102,6 @@ def set_param_fn(config):
     return config
 
 
-# def update_camp_type(simulation, site):
-#     # simulation.task.config.parameters.Run_Number = value
-#     build_camp_partial = partial(build_camp, site=site)
-#     simulation.task.create_campaign_from_callback(build_camp_partial)
-#
-#     update_mab(simulation, mAb_vs_EIR(sum(study_site_monthly_EIRs[site])))
-#
-#     return {"Site": site}
 
 def set_simulation_scenario(simulation, site, csv_path):
     # get information on this simulation setup from coordinator csv
