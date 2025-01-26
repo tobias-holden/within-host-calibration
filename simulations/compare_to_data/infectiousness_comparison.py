@@ -4,6 +4,7 @@ sys.path.append('../')
 import warnings
 import manifest
 import numpy as np
+from numpy import log
 import pandas as pd
 from pandas.errors import SettingWithCopyWarning
 import warnings
@@ -15,7 +16,8 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 sns.set_context("talk")
 sns.set_style("white")
-from scipy.stats import binom
+from scipy.stats import binom, dirichlet_multinomial
+from scipy.special import gammaln
 from cycler import cycler
 sys.path.append('../../')
 from calibration_common.create_plots.helpers_reformat_sim_ref_dfs import get_fraction_in_infectious_bin
@@ -32,7 +34,6 @@ for site in sites:
         infectiousness_sites.append(site)
 print(f"Infectiousness Sites: {infectiousness_sites}")
 coord_csv = pd.read_csv(manifest.simulation_coordinator_path)
-
 
 def prepare_infectiousness_comparison_single_site(sim_df, site):
     """
@@ -148,21 +149,85 @@ def compute_infectiousness_likelihood(combined_df):
     true population mean
     Args:
         combined_df (): A dataframe containing both the reference and matched simulation output
-        sim_column (): The name of the column of combined_df to use as the simulation output
-    Returns: A dataframe of loglikelihoods where each row corresponds to a site-month
+    Returns: A dataframe of loglikelihoods where each row corresponds to a site-month-agebin
 
     """
+    
+    #print(combined_df)
+    
+    n_dens_bins = len(combined_df['densitybin'].unique())
+    n_inf_bins=len(combined_df['fraction_infected_bin'].unique())
+    n_bins=n_inf_bins*n_dens_bins
+    
+    # combined_df['ll'] = gammaln(combined_df.ref_total + 1)\
+    #                   + gammaln(combined_df.total_count) \
+    #                   - gammaln(combined_df.ref_total + n_bins) \
+    #                   + gammaln(combined_df.ref_bin_count + combined_df.counts +1)\
+    #                   - gammaln(combined_df.counts + 1)\
+    #                   - gammaln(combined_df.ref_bin_count + 1)
+                     
+    # Extract necessary values from the DataFrame
+    alpha = (combined_df['ref_bin_count'].values + 1).astype(int)  # Dirichlet prior (alpha values)
+    #print(alpha)
+    n = (combined_df['counts'].values  + 1).astype(int)        # Observed counts (n_k)
+    #print(n)
+    total_count = combined_df['total_count'].values  # Total trials (N_k)
+    #print(total_count)
 
+    # K = n_bins  # Number of categories
+    # N = np.sum(n)  # Total number of observations (sum of counts)
+    # 
+    # # Calculate alpha_0 (sum of the Dirichlet hyperparameters)
+    # alpha_0 = np.sum(alpha)
+    #print(alpha_0)
+    #print("terms")
+    # Compute the log-likelihood
+    # term1 = gammaln(alpha_0) - np.sum(gammaln(alpha))  # Dirichlet prior normalization
+    # term2 = np.sum((alpha - 1) * np.log(n / total_count))  # Dirichlet prior log part
+    # term3 = np.sum(gammaln(n + alpha) - gammaln(alpha))  # Multinomial likelihood term
+    # term4 = -gammaln(alpha_0 + N)  # Denominator term for the multinomial
+    # 
+    # log_likelihood = term1 + term2 + term3 + term4
+    
+    
+    D = n.reshape(1,-1)
+    a = alpha
+    N, K = D.shape
+    #print(N)
+    #print(K)
+    logp = log(D).mean(axis=0)
+    log_likelihood = N * (gammaln(a.sum()) - gammaln(a).sum() + ((a - 1) * logp).sum())
+    #print(ll)
+    #exit(1)
+    
+                      
     #fixme Jaline and Prashanth used dirichlet_multinomial for infectiousness
+    # For each agebin & month
+    # Method 1 : Based on calibtool
+#    sum_levels = df.index.names[:-1]
+#    n_obs = df.sum(level=sum_levels)
+#    n_categories = len(df.index.levels[-1])
+#    combined_df['LL']
+#    n_obs['LL'] = gammaln(n_obs.ref + 1) \
+#                + gammaln(n_obs.sim) \
+#                - gammaln(n_obs.ref + n_obs.sim + n_categories) \
+#                + gammaln(df.ref + df.sim + 1).sum(level=sum_levels) \
+#                - gammaln(df.sim + 1).sum(level=sum_levels) \
+#                - gammaln(df.ref + 1).sum(level=sum_levels)
+
+#    return n_obs.LL.mean() / n_categories
+    
+
+    
+
     #fixme 230328: JS changed to a simplified approach: naively assume every observation is independent.
     # Likelihood of each observation is likelihood of seeing reference data if simulation is "reality"
-    binom_ll = np.vectorize(binom.logpmf) # probability mass function of binomial distribution
+    # binom_ll = np.vectorize(binom.logpmf) # probability mass function of binomial distribution
+    # combined_df["ll"] = binom_ll(combined_df["ref_bin_count"],
+    #                              combined_df["ref_total"],
+    #                              combined_df["simulation"])
 
-    combined_df["ll"] = binom_ll(combined_df["ref_bin_count"],
-                                 combined_df["ref_total"],
-                                 combined_df["simulation"])
-    #print(combined_df)
-    return combined_df["ll"].sum()#mean()#
+    return log_likelihood #mean()#
 
 # The following function determines whether any parameters sets were missing for a site,
 # if there are missing parameter set, this prepares compute_LL_by_site to shoot out a warning message
@@ -313,26 +378,22 @@ def compute_infectiousness_LL_for_sim_site(comb_df,numOf_param_sets=100):
     ll_by_param_set["metric"] = "infectiousness"
     ll_by_param_set["site"] = site
     
+    ll_by_param_set = ll_by_param_set.groupby(["param_set","metric","site"])['ll_spec']\
+                      .apply("sum") \
+                      .reset_index() 
+    
     
     if len(missing_param_sets) > 0:
         print(f'Warning {site} is missing param_sets {missing_param_sets} for infectiousness')
     return ll_by_param_set        
 
 if __name__=="__main__":
-    # cc=compute_infectiousness_LL_by_site(site="laye_2007",numOf_param_sets=1000)
-    # print(cc.to_string())
-    # print(cc.sort_values(by=['param_set']).to_string())
-    # cc=cc.groupby(["param_set","site","metric"])['ll_spec'] \
-    #          .apply("sum") \
-    #          .reset_index() \
-    #          .rename(columns={"ll_spec":"ll"})
-    # print(cc.sort_values(by=['ll']).to_string())
     pd.set_option('display.max_columns', None)
-    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/test_241028/LF_0/SO/dapelogo_2007/infectiousness_by_age_density_month.csv"))
-    print(sim_df[(sim_df['param_set'] == 22) & (sim_df['month']==7)])
-    # x=prepare_infectiousness_comparison_single_site(sim_df,'dapelogo_2007')
-    # y=compute_infectiousness_LL_for_sim_site(x,100)
-    
+    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/250115/LF_0/SO/laye_2007/infectiousness_by_age_density_month.csv"))
+    x=prepare_infectiousness_comparison_single_site(sim_df,'laye_2007')
+    print(x)
+    y=compute_infectiousness_LL_for_sim_site(x,100)
+    print(y.sort_values(by='param_set',ascending=False))
     # 
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[92])
     #plot_infectiousness_comparison_all_sites(param_sets_to_plot=[1,532],

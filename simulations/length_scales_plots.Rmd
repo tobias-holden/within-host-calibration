@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "241108_no_severe_14param"
+exp <- "250118"
 
 dir.create(paste("output",exp,"performance",sep="/"))
 GP_folder<-paste("output",exp,"performance/GP",sep='/')
@@ -75,26 +75,83 @@ for(ls in ls_list){
   
   pids <- seq(1,max(sensitivities$id))
   
-  plevels <- c(1,5,10,6,11,12,7,
-               13,8,14,
-               2,3,4,9)
+  plevels <- c(16,13,15,14,
+               1,2,3,5,9,6,10,11,7,
+               12,8,4)
+
+benchmark <- sensitivities %>% 
+  filter(id%in%c(16,13,15)) %>% 
+  group_by(site,metric) %>% summarize(benchmark=min(value))
+  
 sensitivities %>%
-    mutate(site=gsub('.{5}$', '', site))%>%
+    left_join(benchmark) %>%
+    mutate(site=gsub('.{5}$', '', site)) %>%
     mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
     mutate(metric=gsub("asex_density","asexual parasites",metric)) %>%
     ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",tp$parameter[plevels])),
                y=paste(substr(metric,1,4),substr(site,1,4),sep=". "))) +
-    geom_tile(color="white",
-              aes(fill=value)) +
+    geom_tile(aes(fill=value,
+                  alpha=value<=benchmark,
+                  color=value<=benchmark,
+                  linetype=ifelse(value>benchmark,">",ifelse(value==benchmark,"=","<"))),
+              linewidth=1) +
     scale_fill_distiller(palette="RdGy",direction = 1) +
+    scale_alpha_manual(values=c(0.5,1))+
+    scale_color_manual(values=c("transparent","black"))+
+  scale_shape_manual(values=c("","X"))+
+  scale_linetype_manual(values=c(1,2,0))+
     #facet_grid(metric~.,scales="free") +
     xlab("") + ylab("") +
     theme_minimal(base_size=16)+
     theme(axis.text.x=element_text(angle=45,hjust=1)) +
     xlab("") + ylab("") +
-    labs(fill=NULL) 
+    labs(fill=NULL,linetype="vs. benchmark",color=NULL,alpha=NULL) +
+  geom_point(aes(shape=value>=benchmark),size=8) +
+  guides(linetype=guide_legend(override.aes = list(fill="transparent",color="black")),
+         alpha="none",color="none") +
+  coord_fixed()
   
   ggsave(paste(GP_folder,"lengthscales.png",sep="/"),width=12,height=8)
+  
+  #
+  
+  benchmark <- sensitivities %>% 
+  filter(id%in%c(16,13,15)) %>% 
+  mutate(benchmark=min(value)) %>% select(-c(id,value))
+  
+sensitivities %>%
+    left_join(benchmark) %>%
+    mutate(site=gsub('.{5}$', '', site)) %>%
+    mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
+    mutate(metric=gsub("asex_density","asexual parasites",metric)) %>%
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("Base ","",tp$parameter[plevels])),
+               #y=paste(substr(metric,1,4),substr(site,1,4),sep=". "),
+               y=site)) +
+    geom_tile(aes(fill=log10(value),
+                  alpha=value<=benchmark,
+                  color=value<=benchmark,
+                  linetype=ifelse(value>benchmark,">",ifelse(value==benchmark,"=","<"))),
+              linewidth=1) +
+    scale_fill_distiller(palette="RdGy",direction = 1) +
+    scale_alpha_manual(values=c(0.2,1))+
+    scale_color_manual(values=c("transparent","black"))+
+  scale_shape_manual(values=c("","X")) +
+  scale_linetype_manual(values=c(1,2,0)) +
+    facet_grid(metric~.,scales="free_y",space = "free_y") +
+    xlab("") + ylab("") +
+    theme_minimal(base_size=16)+
+    theme(axis.text.x=element_text(angle=45,hjust=1)) +
+    xlab("") + ylab("") +
+    labs(fill=NULL,linetype="vs. benchmark",color=NULL,alpha=NULL) +
+  geom_point(aes(shape=value>=benchmark),size=8) +
+  guides(linetype=guide_legend(override.aes = list(fill="transparent",color="black")),
+         alpha="none",color="none") #+
+  coord_fixed()
+  
+  #
+  
+  
+  
   
   sensitivities %>%
     mutate(site=gsub('.{5}$', '', site))%>%
@@ -146,21 +203,62 @@ sensitivities %>%
     #mutate(value=1/value)%>%
     group_by(metric,id) %>%
     summarize(value=mean(value)) %>%
-    ungroup() %>%
+    ungroup() -> sum_sens
+  
+  sum_sens %>% filter(id %in% c(16,13,15)) %>% group_by(metric) %>% filter(value==min(value)) -> threshold
+
+  threshold %>% rename(threshold=value) %>% select(metric,threshold)-> threshold
+  
+  sum_sens %>%
+    left_join(threshold) %>%
     mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
     mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
     ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
                y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence","severe_incidence")))) +
     theme_minimal(base_size=16) +
-    geom_tile(color="white",
-              aes(fill=value)) +
+    geom_tile(aes(fill=value/threshold,
+                  color=factor(value<=threshold),
+                  linetype=ifelse(value>threshold,">",ifelse(value<threshold,"<","=")),
+                  alpha=factor(value<threshold)),
+              linewidth=1) +
+    geom_point(aes(shape=value>=threshold),
+               size=8)+
     scale_fill_distiller(palette="RdGy",direction = 1) +
+    scale_linetype_manual(values=c(1,2,0))+
     theme(axis.text.x=element_text(angle=45,hjust=1)) +
     xlab("") + ylab("") +
-    labs(fill=NULL) +
-    coord_fixed()
+    labs(fill=NULL,alpha=NULL,color=NULL,linetype="vs. Threshold") +
+    coord_fixed() +
+    scale_shape_manual(values=c("","X"))+
+    scale_color_manual(values=c("transparent","black")) +
+    guides(alpha="none",color="none",
+           linetype=guide_legend(override.aes = list(fill="transparent",color="black")))
   ggsave(paste(GP_folder,"average_lengthscales.png",sep="/"),width=10,height=6)
+  
+  
+   sum_sens %>%
+    left_join(threshold) %>%
+    mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
+    mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
+               y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
+                                        "infectiousness","incidence","severe_incidence")))) +
+    theme_minimal(base_size=16) +
+    geom_tile(aes(fill=value,
+                  color=factor(value<=threshold),
+                  linetype=ifelse(value>threshold,">",ifelse(value<threshold,"<","=")),
+                  alpha=factor(value<threshold)),
+              linewidth=1) +
+    scale_fill_distiller(palette="RdGy",direction = 1) +
+    scale_linetype_manual(values=c(1,2,0))+
+    theme(axis.text.x=element_text(angle=45,hjust=1)) +
+    xlab("") + ylab("") +
+    labs(fill=NULL,alpha=NULL,color=NULL,linetype="vs. Threshold") +
+    coord_fixed() +
+    scale_color_manual(values=c("transparent","black")) +
+    guides(alpha="none",color="none",
+           linetype=guide_legend(override.aes = list(fill="transparent",color="black")))
 ```
 
 

@@ -39,12 +39,18 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     # Create a platform
     # Show how to dynamically set priority and node_group
     platform_test=Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='12:00:00', 
-                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500)
+                            account='p32622', modules=['singularity'], max_running_jobs=200, mem=2500)
     platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='short', time='4:00:00', 
-                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500,
+                            account='p32622', modules=['singularity'], max_running_jobs=250, mem=2500,
                             sbatch_custom=f"--job-name=run_{site}")
     platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='12:00:00', 
-                            account='p32622', modules=['singularity'], max_running_jobs=100, mem=2500)
+                            account='p32622', modules=['singularity'], max_running_jobs=250, mem=2500)
+                            
+    b1139 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='12:00:00', 
+                            account='b1139', modules=['singularity'], max_running_jobs=200, mem=2500)
+    b1139_test = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='12:00:00', 
+                            account='b1139', modules=['singularity'], max_running_jobs=200, mem=2500)
+                            
                             
     #platform = Platform(my_manifest.platform_name, priority=priority, node_group=my_manifest.node_group)
     #print("Prompting for COMPS creds if necessary...")
@@ -52,10 +58,10 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     experiment = create_exp(characteristic, nSims, site, my_manifest, not_use_singularity,platform1, X)
 
     # The last step is to call run() on the ExperimentManager to run the simulations.
-    experiment.run(wait_until_done=False, platform=platform2)
+    experiment.run(wait_until_done=False, platform=platform1)
 
     # Additional step to schedule analyzer to run after simulation finished running
-    submit_scheduled_analyzer(experiment, platform1, site, analyzer_script='run_analyzers.py', mem=25000)
+    submit_scheduled_analyzer(experiment, b1139_test, site, analyzer_script='run_analyzers.py', mem=25000)
 
     # Save experiment id to file
     comps_id_file = get_comps_id_filename(site=site)
@@ -95,7 +101,8 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         #IIVF = IIV[IIV['parameter']=="InnateImmuneDistributionFlag"].reset_index(drop=True)
         #IIV1 = IIV[IIV['parameter']=="InnateImmuneDistribution1"].reset_index(drop=True)
         #IIV2 = IIV[IIV['parameter']=="InnateImmuneDistribution2"].reset_index(drop=True)
-        
+        # if(torch.is_tensor(IIVF)):
+        #   IIVF = IIVF.numpy()
         if torch.is_tensor(IIV1):
           IIV1 = IIV1.numpy()
         if torch.is_tensor(IIV2):
@@ -156,7 +163,6 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         
         
         simulation.task.set_parameter("Demographics_Filenames",[f'my_demographics_cohort_{sets}.json'])    
-    
     
     return {'param_set':sets}
 

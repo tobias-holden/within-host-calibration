@@ -2,20 +2,21 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-
+import itertools
 #### Read in Parameter Key
 key_path = 'parameter_key.csv'
 parameter_key = pd.read_csv(key_path)
 
 distribution_names =["CONSTANT_DISTRIBUTION","UNIFORM_DISTRIBUTION",
                      "GAUSSIAN_DISTRIBUTION","EXPONENTIAL_DISTRIBUTION",
-                     "LOG_NORMAL"]
+                     "LOG_NORMAL","BIMODAL_DISTRIBUTION"]
 #### Define Parameter Translator
 
 def translate_parameters(key, guesses, ps_id):
     
     result = "Done" 
     MII_flag = False
+    LTD_flag = False
     output = pd.DataFrame({"parameter": [], 
                            "param_set": [],
                            "team_default":[],
@@ -37,6 +38,7 @@ def translate_parameters(key, guesses, ps_id):
     for index, row in key.iterrows():
         # Scale to parameter range
         MII_flag=False
+        LTD_flag=False
         # Scale to parameter range
         value = row['min']+guesses[index]*(row['max']-row['min'])
         #print(f"{guesses[index]} --> {value}")
@@ -77,6 +79,10 @@ def translate_parameters(key, guesses, ps_id):
         if(row['parameter_name']=='Max_Individual_Infections'):
             if(guesses[index]==-1):
               MII_flag=True
+              
+        if(row['parameter_name']=="Antibody_Days_To_Long_Term_Decay"):
+            if(guesses[index]==-1):
+              LTD_flag=True
         
         # Convert Data Types
         if(row['type'] == 'integer'):
@@ -93,6 +99,9 @@ def translate_parameters(key, guesses, ps_id):
         # Fix initial MII
         if MII_flag: 
             value=np.trunc(3.0)
+        # Fix default LTD (never)
+        if LTD_flag:
+            value=np.trunc(365000)
         
         new_row = pd.DataFrame({"parameter": [row['parameter_name']], 
                                 "param_set": [ps_id],
@@ -114,7 +123,7 @@ def translate_parameters(key, guesses, ps_id):
     # Check IIVT Logic & do second translation on hyperparams
     ifrow = output[output['parameter'] == 'InnateImmuneDistributionFlag'].reset_index()
     #print(ifrow)
-    iflag = ifrow['emod_value'][0]
+    iflag =ifrow['emod_value'][0]
     #print(iflag)
     #print(iflag)
     
@@ -148,6 +157,10 @@ def translate_parameters(key, guesses, ps_id):
       output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.0
       # standard deviation
       output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
+    elif iflag=='BIMODAL_DISTRIBUTION':
+      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.6
+      # standard deviation
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
       
      
     return(output)
@@ -174,6 +187,7 @@ def get_initial_samples(key, size=1):
 
 def emod_to_unit(key,param,value): 
     loc = key[key['parameter_name']==param].reset_index()
+    #print(loc)
     u = np.nan
     if loc['transform'][0]=='none':
         u = (value-loc['min'][0])/(loc['max'][0]-loc['min'][0])
@@ -187,37 +201,8 @@ def emod_to_unit(key,param,value):
 if __name__ == '__main__':
 
 
-    param_key=pd.read_csv("parameter_key.csv")
+    param_key=pd.read_csv("full_parameter_key.csv")
     
-    print(emod_to_unit(param_key,"Anemia_Severe_Threshold",4.50775824973078))
-    print(emod_to_unit(param_key,"Anemia_Severe_Inverse_Width",10))
-    print(emod_to_unit(param_key,"Fever_Severe_Threshold",3.98354299722192))
-    print(emod_to_unit(param_key,"Fever_Severe_Inverse_Width",27.5653580403806))
-    print(emod_to_unit(param_key,"Parasite_Severe_Threshold",851031.287744526))
-    print(emod_to_unit(param_key,"Parasite_Severe_Inverse_Width",56.5754896048744))
-    
-    # 
-    # test_params= [0.235457679394, # Antigen switch rate (7.65E-10) 
-    #               0.166666666667,  # Gametocyte sex ratio (0.2) 
-    #               0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-    #               0.394437557888,  # Base gametocyte production rate (0.0615)
-    #               0.50171665944,   # Falciparum MSP variants (32)
-    #               0.0750750750751, # Falciparum nonspecific types (76)
-    #               0.704339142192,  # Falciparum PfEMP1 variants (1070)
-    #               0.28653200892,   # Fever IRBC kill rate (1.4)
-    #               0.584444444444,  # Gametocyte stage survival rate (0.5886)
-    #               0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-    #               0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-    #               0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-    #               0.492373751573,  # Pyrogenic threshold (15000)
-    #               #1.0,            # Max Individual Infections (20)
-    #               #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-    #               #0.755555555555,  # RBC Destruction Multiplier (3.9)
-    #               0.433677,         # Cytokine Gametocyte Inactivation (0.02)
-    #               0.97,         # InnateImmuneDistributionFlag (Constant)
-    #               0.25,         # Innate Immune Distribution hyperparameter
-    #               0.3          # Innate Immune Distribution hyperparameter placeholder
-    #              ]
-    #              
-    # tp=translate_parameters(param_key, test_params, 1)
-    # #print(tp[['parameter','unit_value','emod_value']])
+    for index, row in param_key.iterrows():
+        print(f'{row["parameter_label"]} of {row["team_default"]}')
+        print(emod_to_unit(param_key,row["parameter_name"],row["team_default"]))

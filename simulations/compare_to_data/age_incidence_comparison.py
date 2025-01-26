@@ -189,7 +189,7 @@ def identify_missing_parameter_sets(combined_df, numOf_param_sets):
     return combined_df, missing_param_sets
     
 def compute_inc_LL_by_site(site, numOf_param_sets):
-    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "inc_prev_data_final.csv"))
+    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "prev_inc_by_age_annual.csv"))
     #sim_df = pd.read_csv(os.path.join(manifest.PROJECT_DIR,'simulations/output/8site_masked2/LF_0/SO', site, "inc_prev_data_final.csv"))
     combined_df = prepare_incidence_comparison_single_site(sim_df, site)
 
@@ -220,7 +220,7 @@ def compute_inc_LL_for_all_sites(numOf_param_sets):
 
 def plot_incidence_comparison_single_site(site, param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
     # Plot comparison for a specific site, given specific param_set
-    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "inc_prev_data_final.csv"))
+    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "prev_inc_by_age_annual.csv"))
     #sim_df = pd.read_csv(os.path.join('/projects/b1139/basel-hackathon-2023/simulations/output/3sites_240223/LF_0/SO',site,"inc_prev_data_final.csv"))
     combined_df = prepare_incidence_comparison_single_site(sim_df, site)
     

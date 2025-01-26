@@ -3,6 +3,7 @@ import os, sys, shutil
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import torch
 
 from botorch.utils.transforms import unnormalize
 
@@ -30,7 +31,7 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "test_CK"
+exp_label = "250126"
 
 
 output_dir = f"output/{exp_label}"
@@ -83,8 +84,19 @@ class Problem:
         param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
-        # if self.n == 0:
+        # if self.n == 4:
         #     Y0 = compute_LL_across_all_sites_and_metrics(numOf_param_sets=100)
+        #     X = pd.read_csv(f"{self.workdir}/LF_4/translated_params.csv")
+        #     X = X['unit_value']
+        #     #print(X)
+        #     X = [eval("torch." + x) for x in X]
+        #     #print(X)
+        #     X = [x.item() for x in X]
+        #     #print(X)
+        #     X = torch.tensor(X)
+        #     X = torch.reshape(X,(100,self.dim))
+        #     
+        #     
         # else:
         #     Y0 = myFunc(X,wdir)
         Y0 = myFunc(X,wdir)
@@ -118,6 +130,11 @@ class Problem:
         if self.n==0:
             # Mask score for team default X_prior
             Y[0]= float("nan")
+            Y[1]= float("nan")
+            Y[2]= float("nan")
+            Y[3]= float("nan")
+            Y[4]= float("nan")
+            Y[5]= float("nan")
          #   Ym[0]= float("nan")
             
         xc = []
@@ -226,120 +243,171 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 param_center = [0.5] * n_params
 
 # Usual random init sample, with team default Xprior
-
-params_241110 = [0.338892325, # Antigen switch rate
-                 0.171487813, # Base gametocyte fraction male
-                 0.245767666, # Base gametocyte mosquito survival rate
-                 0.75732431,  # Base gametocyte production rate
-                 0.069400287, # Falciparum MSP Variants
-                 0.101334176, # Falciparum Nonspecific types
-                 0.795278206, # Falciparum PfEMP1 variants
-                 0.984605496, # Fever iRBC kill rate
-                 0.835921451, # Gametocyte stage survival rate
-                 0.473425178, # MSP1 Merozoite kill fraction
-                 0.809004543, # Nonspecific antibody growth rate factor
-                 0.08839056,  # Nonspecific antigenicity factor
-                 0.283015895, # Pyrogenic Threshold
-                 #1.0,         # Max individual infections = 20 (not under calib)
-                 0.236979335, # Cytokine Gametocyte Inactivation
-                 0.0,         # InnateImmuneDistributionFlag (Constant)
-                 0.0,         # Innate Immune Distribution hyperparameter
-                 0.0]          # Innate Immune Distribution hyperparameter placeholder
-                 #0.08869166174886942, # Severe fever inverse width
-                 #0.1,                 # Severe fever threshold
-                 #0.32967622160487114, # Severe parasite inverse width
-                 #0.55130716080761,    # Severe parasite threshold
-                 #0.834479208605029,   # Severe anemia inverse width
-                 #0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                 #0.09790265662515]    # Maternal antibody protection
-
+og3 =  [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
+        1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
+        0.235457679394,  # Antigen switch rate (7.65E-10)
+        #0.166666666667,  # Gametocyte sex ratio (0.2)
+        #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+        0.394437557888,  # Base gametocyte production rate (0.0615)
+        0.50171665944,   # Falciparum MSP variants (32)
+        0.0750750750751, # Falciparum nonspecific types (76)
+        0.704339142192,  # Falciparum PfEMP1 variants (1070)
+        0.28653200892,   # Fever IRBC kill rate (1.4)
+        #0.584444444444,  # Gametocyte stage survival rate (0.5886)
+        0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
+        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
+        0.825707,  # Pyrogenic threshold (15000)
+        #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
+        1.0,             # InnateImmuneDistributionFlag (Constant)
+        1.0,             # Innate Immune Distribution hyperparameter
+        1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
+        -1.0]            # Max individual infections (3)
                        
-team_default_params = [0.235457679394, # Antigen switch rate (7.65E-10) 
-                       0.166666666667,  # Gametocyte sex ratio (0.2) 
-                       0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-                       0.394437557888,  # Base gametocyte production rate (0.0615)
-                       0.50171665944,   # Falciparum MSP variants (32)
-                       0.0750750750751, # Falciparum nonspecific types (76)
-                       0.704339142192,  # Falciparum PfEMP1 variants (1070)
-                       0.28653200892,   # Fever IRBC kill rate (1.4)
-                       0.584444444444,  # Gametocyte stage survival rate (0.5886)
-                       0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-                       0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-                       0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-                       0.492373751573,  # Pyrogenic threshold (15000)
-                       #-1.0,            # Max Individual Infections (3)
-                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677,         # Cytokine Gametocyte Inactivation (0.02)
-                       0.0,         # InnateImmuneDistributionFlag (Constant)
-                       0.0,         # Innate Immune Distribution hyperparameter
-                       0.0,          # Innate Immune Distribution hyperparameter placeholder
-                       0.08869166174886942, # Severe fever inverse width
-                       0.1,                 # Severe fever threshold
-                       0.32967622160487114, # Severe parasite inverse width
-                       0.55130716080761,    # Severe parasite threshold
-                       0.834479208605029,   # Severe anemia inverse width
-                       0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                       0.09790265662515]    # Maternal antibody protection
-
-team_default_params20 = [0.235457679394, # Antigen switch rate (7.65E-10) 
-                       0.166666666667,  # Gametocyte sex ratio (0.2) 
-                       0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-                       0.394437557888,  # Base gametocyte production rate (0.0615)
-                       0.50171665944,   # Falciparum MSP variants (32)
-                       0.0750750750751, # Falciparum nonspecific types (76)
-                       0.704339142192,  # Falciparum PfEMP1 variants (1070)
-                       0.28653200892,   # Fever IRBC kill rate (1.4)
-                       0.584444444444,  # Gametocyte stage survival rate (0.5886)
-                       0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-                       0.339794000867,  # Nonspecific antibody growth rate factor (0.5)  
-                       0.415099999415,  # Nonspecific Antigenicity Factor (0.4151) 
-                       0.492373751573,  # Pyrogenic threshold (15000)
-                       #1.0,            # Max Individual Infections (20)
-                       #0.666666666666,  # Erythropoesis Anemia Effect Size (3.5)
-                       #0.755555555555,  # RBC Destruction Multiplier (3.9)
-                       0.433677,         # Cytokine Gametocyte Inactivation (0.02)
-                       0.0,         # InnateImmuneDistributionFlag (Constant)
-                       0.0,         # Innate Immune Distribution hyperparameter (0)
-                       0.0]          # Innate Immune Distribution hyperparameter placeholder (0)
-                       #0.08869166174886942, # Severe fever inverse width (27.5653580403806)
-                       #0.1,                 # Severe fever threshold (3.98354299722192)
-                       #0.32967622160487114, # Severe parasite inverse width (56.5754896048744)
-                       #0.55130716080761,    # Severe parasite threshold (851031.287744526)
-                       #0.834479208605029,   # Severe anemia inverse width (10)
-                       #0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                       #0.09790265662515]    # Maternal antibody protection
+og20 = [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
+        1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
+        0.235457679394,  # Antigen switch rate (7.65E-10)
+        #0.166666666667,  # Gametocyte sex ratio (0.2)
+        #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+        0.394437557888,  # Base gametocyte production rate (0.0615)
+        0.50171665944,   # Falciparum MSP variants (32)
+        0.0750750750751, # Falciparum nonspecific types (76)
+        0.704339142192,  # Falciparum PfEMP1 variants (1070)
+        0.28653200892,   # Fever IRBC kill rate (1.4)
+        #0.584444444444,  # Gametocyte stage survival rate (0.5886)
+        0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
+        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
+        0.825707,  # Pyrogenic threshold (15000)
+        #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
+        1.0,             # InnateImmuneDistributionFlag (Constant)
+        1.0,             # Innate Immune Distribution hyperparameter
+        1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
+        1.0]             # Max individual infections (20)
                        
+best20 = [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
+          1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
+          0.14681129217943623, # Antigen switch rate ()
+          #0.34207990250727766, # Gametocyte sex ratio ()
+          #0.21048407105226913, # Base gametocyte mosquito survival rate () **
+          0.3693409807720977,  # Base gametocyte production rate ()
+          0.5604795715897458,  # Falciparum MSP variants ()
+          0.2626690152129773,  # Falciparum nonspecific types ()
+          0.7022772001589451,  # Falciparum PfEMP1 variants ()
+          0.060994132023345846,# Fever IRBC kill rate ()
+          #0.081170198,         # Gametocyte stage survival rate ()
+          0.041490393,         # MSP Merozoite Kill Fraction ()
+          0.3610358476836043,  # Nonspecific antibody growth rate factor ()
+          0.9988806702814735,  # Nonspecific Antigenicity Factor ()
+          0.668708,  # Pyrogenic threshold (5071)
+          #0.9232331462914466,  # Cytokine Gametocyte Inactivation ()
+          0.075623195,         # InnateImmuneDistributionFlag (Constant)
+          0.6597309204578824,  # Innate Immune Distribution hyperparameter
+          0.3364027554237745,  # Innate Immune Distribution hyperparameter placeholder (0.4)
+          1.0]                 # Max individual infections (20)
+          
+          
+og3LTD =  [0.38997214484679665,                 # Antibody_Days_To_Long_Term_Decay (730)
+           1.0,                 # Antibody_Long_Term_Decay_Days (3650)
+           0.235457679394,  # Antigen switch rate (7.65E-10)
+           #0.166666666667,  # Gametocyte sex ratio (0.2)
+           #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+           0.394437557888,  # Base gametocyte production rate (0.0615)
+           0.50171665944,   # Falciparum MSP variants (32)
+           0.0750750750751, # Falciparum nonspecific types (76)
+           0.704339142192,  # Falciparum PfEMP1 variants (1070)
+           0.28653200892,   # Fever IRBC kill rate (1.4)
+           #0.584444444444,  # Gametocyte stage survival rate (0.5886)
+           0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+           0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
+           0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
+           0.825707,  # Pyrogenic threshold (15000)
+           #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
+           1.0,             # InnateImmuneDistributionFlag (Constant)
+           1.0,             # Innate Immune Distribution hyperparameter
+           1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
+           -1.0]            # Max individual infections (3)
+                       
+og20LTD =[0.38997214484679665,   # Antibody_Days_To_Long_Term_Decay (730)
+          1.0,                      # Antibody_Long_Term_Decay_Days (3650)
+          0.235457679394,  # Antigen switch rate (7.65E-10)
+          #0.166666666667,  # Gametocyte sex ratio (0.2)
+          #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
+          0.394437557888,  # Base gametocyte production rate (0.0615)
+          0.50171665944,   # Falciparum MSP variants (32)
+          0.0750750750751, # Falciparum nonspecific types (76)
+          0.704339142192,  # Falciparum PfEMP1 variants (1070)
+          0.28653200892,   # Fever IRBC kill rate (1.4)
+          #0.584444444444,  # Gametocyte stage survival rate (0.5886)
+          0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
+          0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
+          0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
+          0.825707,  # Pyrogenic threshold (15000)
+          #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
+          1.0,             # InnateImmuneDistributionFlag (Constant)
+          1.0,             # Innate Immune Distribution hyperparameter
+          1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
+          1.0]             # Max individual infections (20)
+                       
+best20LTD =[0.38997214484679665,                 # Antibody_Days_To_Long_Term_Decay (730)
+            1.0,                 # Antibody_Long_Term_Decay_Days (3650)
+            0.14681129217943623, # Antigen switch rate (7.65E-10)
+            #0.34207990250727766, # Gametocyte sex ratio (0.2)
+            #0.21048407105226913, # Base gametocyte mosquito survival rate (0.00088) **
+            0.3693409807720977,  # Base gametocyte production rate (0.0615)
+            0.5604795715897458,  # Falciparum MSP variants (32)
+            0.2626690152129773,  # Falciparum nonspecific types (76)
+            0.7022772001589451,  # Falciparum PfEMP1 variants (1070)
+            0.060994132023345846,# Fever IRBC kill rate (1.4)
+            #0.081170198,         # Gametocyte stage survival rate (0.5886)
+            0.041490393,         # MSP Merozoite Kill Fraction (0.511735)
+            0.3610358476836043,  # Nonspecific antibody growth rate factor (0.5)
+            0.9988806702814735,  # Nonspecific Antigenicity Factor (0.4151)
+            0.668708,          # Pyrogenic threshold (5071)
+            #0.9232331462914466,  # Cytokine Gametocyte Inactivation (0.02)
+            0.075623195,         # InnateImmuneDistributionFlag (Constant)
+            0.6597309204578824,  # Innate Immune Distribution hyperparameter
+            0.3364027554237745,  # Innate Immune Distribution hyperparameter placeholder (0.4)
+            1.0]                 # Max individual infections (20)
 
-params_241013 = [0.063819259,
-                0.311834632,
-                0.265195263,
-                0.709026171,
-                0.159035939,
-                0.176874946,
-                0.733520807,
-                0.976217168,
-                0.833900254,
-                0.449908713,
-                0.694589051,
-                0.129187744,
-                0.294669431,
-                #1.000000000, # Max Individual Infections (20)
-                #0.410575954,
-                #0.391240481,
-                0.199995755,
-                0.0,         # InnateImmuneDistributionFlag (Constant)
-                0.0,         # Innate Immune Distribution hyperparameter
-                0.0,          # Innate Immune Distribution hyperparameter placeholder
-                0.08869166174886942, # Severe fever inverse width
-                0.1,                 # Severe fever threshold
-                0.32967622160487114, # Severe parasite inverse width
-                0.55130716080761,    # Severe parasite threshold
-                0.834479208605029,   # Severe anemia inverse width
-                0.565754896048744,   # Severe anemia threshold (4.50775824973078)
-                0.09790265662515]    # Maternal antibody protection
+recent1 =  [0.162011559,
+            0.28704405,
+            0.404499314,
+            0.032100339,
+            0.76051205,
+            0.523973936,
+            0.895322169,
+            0.534285852,
+            0.615840137,
+            0.443207365,
+            0.457770734,
+            0.650599717,
+            0.994040708,
+            0.487476698,
+            0.761676972,
+            0.55873094]                 
 
-xprior = [team_default_params20, params_241110]
+recent2 =  [0.717175334,
+            0.046162481,
+            0.059301704,
+            0.583551667,
+            0.398200859,
+            0.449310958,
+            0.982295784,
+            0.661674454,
+            0.426075643,
+            0.054500493,
+            0.537145588,
+            0.79750433,
+            0.859899685,
+            0.547011133,
+            0.596003849,
+            0.545935206]
+            
+
+
+
+xprior = [og3,og20,og3LTD,og20LTD,best20,best20LTD,recent1,recent2]
 ## add samples at unit centroid to learn noise
 #xprior = x_prior + [param_center]*5
 
@@ -357,6 +425,7 @@ bo.run()
 post_calibration_analysis(experiment=exp_label,
                           length_scales_by_objective=True,              # Fit single-task GP per within-host site-metric
                           length_scales_by_environment_objective=False, # per environment_calibration score
-                          length_scales_plot=False,                      # Plot length-scales from calibration
-                          prediction_plot=False,exclude_count=0,         # Plot predictions, starting @ exclude_count
-                          timer_plot=False)                              # Plot emulator and acquisition timing
+                          length_scales_plot=False,                     # Plot length-scales from calibration
+                          prediction_plot=False,exclude_count=0,        # Plot predictions, starting @ exclude_count
+                          timer_plot=False,                             # Plot emulator and acquisition timing
+                          n_prior=6)                                    # First n 'masked' priors used to seed calib without scores    

@@ -16,6 +16,7 @@ from analyzers.ParDensAgeAnalyzer import ParDensAgeAnalyzer
 from analyzers.InfectiousnessByParDensAgeAnalyzer import InfectiousnessByParDensAgeAnalyzer
 from analyzers.PatientReportAnalyzer import PatientAnalyzer
 from analyzers.MonthlySummaryReportAnalyzer import MonthlySummaryReportAnalyzer
+from analyzers.SurveyReportAnalyzer import SurveyReportAnalyzer
 from analyzers.NoBloodAnalyzer import NoBloodAnalyzer
 from wait_for_experiment import check_experiment
 
@@ -111,6 +112,8 @@ def run_analyzers(site: str, expid: str = None, characteristic: bool = False) ->
             else:
                 analyzers.append(AnnualSummaryReportAnalyzer(expt_name= site,
                                           sweep_variables= ['Run_Number', 'Site', 'param_set'],
+                                          start_year= int(report_start_day / 365),
+                                          end_year= int(simulation_duration / 365),
                                           working_dir=wdir))
         if coord_df.at[site, 'include_MalariaPatientReport']:  # infection duration
             #analyzers.append(PatientAnalyzer)
@@ -128,6 +131,10 @@ def run_analyzers(site: str, expid: str = None, characteristic: bool = False) ->
             analyzers.append(NoBloodAnalyzer(expt_name= site,
                                       sweep_variables=['Run_Number', 'Site', 'param_set'],
                                       working_dir=wdir))
+        
+        # analyzer_args.append({'dir_name': f'{wdir}/{site}'})
+        # analyzers.append(SurveyReportAnalyzer(dir_name=f'{wdir}/{site}',
+        #                                       start_report_day=report_start_day))
 
         #analysis = PlatformAnalysis(platform=platform, experiment_ids=[exp_id],
          #                           analyzers=analyzers,

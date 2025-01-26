@@ -16,7 +16,7 @@ library(reticulate)
 library(patchwork)
 
 # experiment name
-exp <- "het_PT_severe"
+exp <- "250118"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv",header = FALSE)
 # Number of training batches
 training_batches <- coord_df$V2[coord_df$V1=="init_batches"]
@@ -55,7 +55,7 @@ theme_set(theme_minimal(base_size=14))
 ### Datasets
 
 ```{r}
-#### Raw scores
+#### Raw scores 
 scores <- read.csv(paste("output",exp,'all_LL.csv',sep='/'))
 # Identify parameter sets with missing or NA scores
 scores %>% group_by(param_set,round) %>% summarize(missing=sum(is.na(ll))) %>% filter(missing>0) -> unscored
@@ -139,47 +139,83 @@ parameters %>% select(parameter,min,max,team_default,transformation) %>% distinc
 select_particles
 
 ```{r}
-
-threshold_score=-95000
-threshold_score=quantile(total_scores$total_score,probs=seq(0,1,0.02),names = FALSE)[49]
-
-
-total_scores %>% left_join(parameters) %>% select(round,param_set,total_score,parameter,unit_value) %>%
-  pivot_wider(names_from=parameter,values_from = unit_value) %>%
+bloodless <- scores %>% filter(metric=="no_blood") %>%
+  select(param_set,round,site,metric,ll) %>% 
+  group_by(param_set,round) %>%
+  summarize(b=sum(ll)) %>%
   ungroup() %>%
-  filter(total_score>=threshold_score) -> best_sets
+  filter(b!=0)
 
+total_scores %>% arrange(-total_score) %>% 
+  select(param_set,round) %>% 
+  mutate(label="top") %>% head(5) -> top
 
-best_sets %>% select(-total_score)%>%
-  summarize(across(-c(param_set,round), mean)) -> center_best
+total_scores %>% filter(param_set == 1 & round==0) %>% 
+  select(param_set,round) %>% 
+  mutate(label="default") -> def
 
-best_sets %>% gather("parameter","unit_value",-c(round,param_set,total_score)) %>%
-  left_join(center_best %>% gather("parameter","center")) %>%
-  mutate(dist=abs(center-unit_value))%>%
-  group_by(round,param_set)%>%
-  mutate(total_dist=sum(dist)) %>%
-    ungroup() %>%
-  arrange(-total_dist) %>%
-  group_by(parameter) %>% mutate(keep=dist==max(dist))%>%
+scores %>% 
+  filter(!(interaction(param_set,round) %in% interaction(bloodless$param_set,bloodless$round))) %>%
+  filter(metric!="no_blood") %>% 
+  group_by(site,metric) %>% filter(ll==max(ll)) %>%
+  ungroup() %>% 
+  mutate(label=interaction(site,metric))%>%
+  select(param_set,round,label) -> local
+
+improvements %>% 
+  select(param_set,round) %>% 
+  mutate(label=interaction(param_set,round,lex.order = T)) -> progressive
+
+#####
+
+selection_type = "final" # [progress, final]
+
+#####
+
+if(selection_type=="progress") {
+  particles <- progressive %>% filter(!(interaction(round,param_set) %in% interaction(bloodless$round,bloodless$param_set)))
+} else if (selection_type == "final") {
+  particles <- rbind.data.frame(top,
+                                rbind.data.frame(local, def))
+} else if (selection_type=="limited"){
+  particles <- progressive %>% 
+    filter(!(interaction(round,param_set) %in% interaction(bloodless$round,bloodless$param_set))) %>%
+    filter(round==max(round)) %>%
+    filter(param_set==max(param_set))%>%
+    rbind.data.frame(def)
+}
+
+particles %>%
+  group_by(param_set,round)%>%
+  mutate(label2=paste(label,collapse=" + ")) %>%
+  select(-label)%>%
   ungroup() %>%
-  mutate(keep=ifelse(keep,TRUE,total_dist==max(total_dist))) %>%
-  mutate(keep=ifelse(interaction(round,param_set) %in% interaction(best_round,best_ps),
-                     TRUE,
-                     keep))%>%
-  group_by(round,param_set) %>%
-  mutate(keep=sum(keep)>0)%>%
-  filter(keep) -> best_sets
+  arrange(param_set,round) %>%
+  mutate(dup=duplicated(interaction(param_set,round))) %>%
+  filter(!dup) %>% select(-dup) %>% rename(label=label2) -> particles
 
-best_sets %>% left_join(total_scores %>% ungroup() %>% mutate(rank=rank(-total_score))) %>%
-  ggplot(aes(x=unit_value,y=dist)) +
-  facet_wrap(~parameter,scales="free_x") +
-  geom_point(aes(color=factor(rank)))
 
-particles <- best_sets %>% select(round,param_set) %>% distinct()
+if(selection_type=="progress"){
+  particle_levels=interaction(particles$param_set,particles$round,drop = T)
+  particle_levels=sort(particle_levels)
+} else if(selection_type=="final"){
+  particles$label = gsub(" \\+ ","\n",particles$label)
+  particle_levels=unique(particles$label)
+} else if(selection_type=="limited"){
+  particle_levels=c("default",paste(interaction(best_ps,best_round)))
+}
 
-# total_scores %>% ungroup() %>%
-#   filter(total_score==max(total_score)) %>%
-#   select(-total_score) -> particles
+particles <- particles %>% filter(grepl("top",label) | grepl("default",label) | grepl("incidence",label))
+
+#particles <-data.frame(param_set=c(1,2,3,4,5,6,best_ps),round=c(0,0,0,0,0,0,best_round),label=c("og3","og20","best20","og3ltd","og20ltd","best20ltd","best"))
+#particles <- particles %>% rbind.data.frame(local)
+
+
+# particles <-data.frame(param_set=c(1,2,3,4,5,6,7,8),
+#                        round=c(0,0,0,0,0,0,0,0),
+#                        label=c("og3","og20","og3LTD","og20LTD","best20","best20LTD","recent1","recent2"))
+particle_levels=unique(particles$label)
+
 ```
 
 ### Objectives
@@ -189,8 +225,6 @@ sim_coord_df <- read.csv("../simulation_inputs/simulation_coordinator.csv")
 
 obj_to_plot <- scores %>% select(metric,site) %>% distinct()
 obj_to_plot <- obj_to_plot %>% filter(metric!="no_blood")
-
-
 
 ### Severe Incidence
 plot_severe_incidence <- function(plot_particles,score_df,plot_site){
@@ -234,7 +268,7 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
         theme_minimal(base_size=16) +
         geom_line(aes(group=interaction(round,param_set),
                       #color=ifelse(round<training_batches,"gray",my_pal[round+1]),
-                      color=factor(param_set),
+                      color=factor(label,levels=particle_levels),
                       linewidth=round==max(round),
                       alpha=round==max(round))) +
         geom_point(data=inc_ref%>%filter(Site==plot_site),aes(x=Age,y=cumulative_severe_incidence,
@@ -255,7 +289,6 @@ plot_severe_incidence <- function(plot_particles,score_df,plot_site){
   
 }
 
-
 for(site in unique(obj_to_plot$site[obj_to_plot$metric=="severe_incidence"])){
   plot_severe_incidence(plot_particles=particles,
                         score_df=scores,
@@ -273,7 +306,7 @@ plot_incidence <- function(plot_particles,score_df,plot_site){
   {
     
     tmp <- read.csv(paste("output/",exp,"/LF_",ddmp$round[i],
-                          "/SO/",ddmp$site[i],"/inc_prev_data_full.csv",sep=''))
+                          "/SO/",ddmp$site[i],"/prev_inc_by_age_annual.csv",sep=''))
     tmp %>% right_join(ddmp[i,]) -> tmp
     if(i==1){
       inc_df <- tmp 
@@ -290,28 +323,34 @@ plot_incidence <- function(plot_particles,score_df,plot_site){
   inc_ref %>% filter(Site == plot_site) -> inc_ref
   inc_ref %>% select(Site,INC,INC_LAR,INC_UAR,POP) %>%
     mutate(Age=INC_UAR) -> inc_ref
+
   
-  
-  inc_df %>%
-    filter(site==plot_site) %>%
-    filter((param_set==1 & round==0) | round==max(round)) %>%
+  inc_df %>% 
+    filter(site==plot_site) %>% 
+    group_by(round,param_set,site,Age,label) %>%
+    summarize(Incidence=mean(Incidence)) %>%
+    #mutate(label=ifelse(selection_type=="final",gsub(" \\+ ","\n",label),label)) %>%
+    #mutate(label=ifelse(selection_type=="progress",label,label)) %>%
+    #filter((param_set==1 & round==0) | round==max(round)) %>%
     ggplot(aes(x=Age,y=Incidence)) +
-    ggtitle(toupper(plot_site))+
-    theme_minimal(base_size=16) +
-    geom_line(aes(group=interaction(round,param_set),color=interaction(param_set,round),
+    ggtitle(toupper(plot_site)) +
+    theme_minimal(base_size=16) + 
+    geom_line(aes(group=interaction(round,param_set),
+                  color=factor(label,levels=particle_levels),
                   linewidth=round==max(round),
-                  alpha=round==max(round))) +
+                  alpha=round==max(round))) + 
     geom_point(data=inc_ref%>%filter(Site==plot_site),aes(x=INC_UAR,y=INC/1000,shape="reference",size=POP)) +
     #scale_color_identity() +
-    scale_y_continuous(minor_breaks = seq(1,20,1))+
-    scale_x_log10()+
+    scale_y_continuous(minor_breaks = seq(1,20,1)) +
+    scale_x_log10() +
     labs(color=NULL,shape=NULL,size="Population") + ylab("Incidence per person per year") +
     guides(linewidth="none")+
-    theme(legend.position="bottom") +
+    theme(legend.position="right",
+          legend.title.position = "top") +
     scale_alpha_manual(values=c(1,1)) +
-    scale_linewidth_manual(values=c(1,1))+
-    scale_size_continuous()+
-    guides(alpha="none",shape="none") -> pp
+    scale_linewidth_manual(values=c(1,1)) +
+    scale_size_continuous() +
+    guides(alpha="none",shape="none",size=guide_legend(direction = "horizontal")) -> pp
   print(pp)
   ggsave(paste(objectives_folder,paste(plot_site,"incidence_best.png",sep="_"),sep='/'),pp,height = 6,width=6)
   
@@ -346,26 +385,27 @@ plot_annual_prevalence <- function(plot_particles,score_df,plot_site){
   annual_prev_ref %>% filter(Site == plot_site) -> annual_prev_ref
 
   annual_prev_df %>%
-  group_by(Age,round,param_set) %>%
+  group_by(Age,round,param_set,label) %>%
   summarize(PrevalenceLow=min(Prevalence),
             PrevalenceHigh=max(Prevalence),
             Prevalence=mean(Prevalence)) %>%
   ggplot(aes(x=Age,y=Prevalence)) +
   theme_bw(base_size=16) +
-  geom_line(aes(group=interaction(round,param_set),color=factor(param_set)),
-            alpha=1) + 
+  geom_line(aes(group=interaction(round,param_set),
+                color=factor(label,levels=particle_levels)),
+            alpha=1,linewidth=1) + 
   geom_point(data=annual_prev_ref,
              aes(x=agebin,y=prevalence,
                  shape="reference",size=total_sampled)) +
-  labs(color="Round", shape=NULL) +
-  guides(size="none",linewidth="none",color="none")+
+  labs(color=NULL, shape=NULL) +
+  guides(size="none",linewidth="none")+
   ggtitle(plot_site) +
   theme_minimal(base_size=16) +
-  theme(legend.position="bottom")+
+  theme(legend.position="right")+
   scale_y_continuous(limits=c(0,1))+
   scale_x_continuous(breaks = unique(annual_prev_df$Age),minor_breaks = NULL) -> pp
 
-  pp
+  print(pp)
 
     ggsave(paste(objectives_folder,paste(plot_site,"annual_prevalence.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
@@ -401,19 +441,21 @@ plot_monthly_prevalence <- function(plot_particles,score_df,plot_site){
 
 monthly_prev_df %>%
   mutate(PfPR=ifelse(PfPR==0,NA,PfPR)) %>%
-  group_by(site,month,agebin,param_set,round) %>% 
+  group_by(site,month,agebin,param_set,round,label) %>% 
   summarize(prevalence=mean(PfPR,na.rm=T)) %>%
   filter(month %in% monthly_prev_ref$month) %>%
   ggplot(aes(x=agebin, y=prevalence)) +
   facet_grid(site~month.abb[month]) +
   geom_line(aes(group=interaction(round,param_set,lex.order = T),
-                color=interaction(round,param_set))) +
+                color=factor(label,levels=particle_levels)),linewidth=1) +
   geom_point(data=monthly_prev_ref %>% mutate(site=tolower(Site)),
              aes(size=total_sampled))+
   theme_minimal(base_size=16) +
+  guides(size="none")+
   #scale_color_identity() +
+  ggtitle(paste(plot_site)) +
   scale_size_continuous(breaks=seq(0,1000,50)) +
-  theme(legend.position="bottom") +
+  theme(legend.position="right") +
   labs(size="sample size",color=NULL) -> pp
 
   print(pp)  
@@ -421,7 +463,6 @@ monthly_prev_df %>%
 ggsave(paste(objectives_folder,paste(plot_site,"prevalence_best.png",sep="_"),sep='/'),pp,height = 8,width=8)
 
 }
-
 
 for(site in unique(obj_to_plot$site[(obj_to_plot$metric=="prevalence") & (obj_to_plot$site %in% sim_coord_df$site[sim_coord_df$include_MonthlyMalariaSummaryReport])])){
   plot_monthly_prevalence(plot_particles=particles,
@@ -461,13 +502,13 @@ plot_asexual_densities <- function(plot_particles,score_df,plot_site){
     filter(month %in% ref_dens$month) %>%
     filter(Pop>0) %>%
     filter(site==s)%>%
-    group_by(month,agebin,round,param_set,densitybin,site) %>%
+    group_by(month,agebin,round,param_set,densitybin,site,label) %>%
     summarize(asexual_par_dens_freq=mean(asexual_par_dens_freq)) %>%
     ungroup() %>%
     ggplot(aes(x=densitybin,y=asexual_par_dens_freq)) +
-    facet_grid(agebin~month.abb[month],scales="free") +
+    facet_grid(agebin~month.abb[month]) +
     geom_line(aes(group=interaction(round,param_set),
-                  color=interaction(round,param_set)))+
+                  color=factor(label,levels=particle_levels)))+
     geom_point(data=ref_dens,aes(size=bin_total_asex))+
     scale_x_log10(breaks=unique(ref_dens$densitybin)) +
     #scale_color_identity() +
@@ -476,6 +517,7 @@ plot_asexual_densities <- function(plot_particles,score_df,plot_site){
     ggtitle(paste(s)) +
     labs(color=NULL) +
     guides(size="none")+
+    scale_y_continuous(limits = c(0,1))+
     xlab("Asexual Parasite Density") + ylab("Frequency") -> pp
   print(pp)
   ggsave(paste(objectives_folder,paste(s,"asexual_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
@@ -521,13 +563,13 @@ plot_gametocyte_densities <- function(plot_particles,score_df,plot_site){
     filter(month %in% ref_dens$month) %>%
     filter(Pop>0) %>%
     filter(site==s)%>%
-    group_by(month,agebin,round,param_set,densitybin,site) %>%
+    group_by(month,agebin,round,param_set,densitybin,site,label) %>%
     summarize(gametocyte_dens_freq=mean(gametocyte_dens_freq)) %>%
     ungroup() %>%
     ggplot(aes(x=densitybin,y=gametocyte_dens_freq)) +
-    facet_grid(agebin~month.abb[month],scales="free") +
+    facet_grid(agebin~month.abb[month]) +
     geom_line(aes(group=interaction(round,param_set),
-                  color=interaction(round,param_set)))+
+                  color=factor(label,levels=particle_levels)))+
     geom_point(data=ref_dens,aes(size=bin_total_gamet))+
     scale_x_log10(breaks=unique(ref_dens$densitybin)) +
     #scale_color_identity() +
@@ -536,6 +578,7 @@ plot_gametocyte_densities <- function(plot_particles,score_df,plot_site){
     ggtitle(paste(s)) +
     labs(color=NULL) +
     guides(size="none")+
+    scale_y_continuous(limits = c(0,1))+
     xlab("Gametocyte Density") + ylab("Frequency") -> pp
   print(pp)
   ggsave(paste(objectives_folder,paste(s,"gametocyte_densities.png",sep="_"),sep='/'),pp,height = 8,width=8)
@@ -558,15 +601,15 @@ plot_infectiousness <- function(plot_particles,score_df,plot_site){
 {
   round=ddmp$round[i]
   ps=ddmp$param_set[i]
-
-  print(paste(site,glue("round ",round," parameter set ",ps),sep=" --- "))
+  lab=ddmp$label[i]
+  print(paste(plot_site,glue("round ",round," parameter set ",ps),sep=" --- "))
   temp <- read.csv(paste("output/",exp,
                         "/LF_",round,
                         "/SO/",plot_site,
                         "/infectiousness_by_age_density_month.csv",
                         sep='')) %>% 
           filter(param_set==ps) %>%
-          mutate(round=round) 
+          mutate(round=round,label=lab) 
 
   temp$i <- i
   if(!(exists("inf_df"))) {
@@ -583,12 +626,12 @@ plot_infectiousness <- function(plot_particles,score_df,plot_site){
   filter(month %in% unique(inf_ref$month), agebin %in% unique(inf_ref$agebin)) %>%
   filter(Pop == max(Pop)) %>%
   mutate(counts = infectiousness_bin_freq * Pop) %>%
-  group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin) %>%
+  group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin,label) %>%
   summarize(counts=sum(counts)) %>%
-  group_by(i,Site,round,param_set,month,agebin) %>% mutate(total_count=sum(counts)) %>%
+  group_by(i,Site,round,param_set,month,agebin,label) %>% mutate(total_count=sum(counts)) %>%
   ungroup() %>%
   mutate(freq_frac_infect=counts/total_count) -> inf_df
-
+  #print(inf_df)
 # Plotting
   s=plot_site
 
@@ -605,9 +648,8 @@ plot_infectiousness <- function(plot_particles,score_df,plot_site){
         filter(freq_frac_infect>0) %>%
         ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin),size=freq_frac_infect)) +
         facet_wrap(interaction(month.name[month],Site,sep=" in ")~agebin) +
-        
         #scale_x_log10(breaks=unique(inf_df$densitybin)) +
-        geom_point(aes(color=factor(paste("Round",round,"#",param_set)),
+        geom_point(aes(color=gsub(" \\+ ","\n",label),
                        alpha=0.3)) +
         geom_point(data=inf_ref %>% filter(site==s & agebin!=0.5)%>%
                      #filter(densitybin>0)%>%
@@ -619,14 +661,14 @@ plot_infectiousness <- function(plot_particles,score_df,plot_site){
         scale_size_binned(breaks = c(0.01,0.05,0.1,0.2,0.3,0.5),range = c(0.1,4),
                           guide=guide_legend())+
         theme_minimal(base_size=14) +
-        guides(size=guide_legend(ncol=2))+
-        theme(legend.position="bottom",
+        guides(size=guide_legend(ncol=2),alpha="none")+
+        theme(legend.position="right",
               legend.direction = "vertical",
               panel.grid.minor=element_blank(),
               axis.text.x=element_text(angle=45,hjust=1)) +
         xlab("Gametocyte Density") + ylab("Infectiousness Bin (%)") +
         labs(color=NULL, size=NULL,shape=NULL) -> pp
-      pp 
+      print(pp) 
       ggsave(paste(objectives_folder,paste(s,"infectiousness.png",sep="_"),sep='/'),pp,height = 10,width=10)
 
 }
@@ -647,13 +689,25 @@ for(site in unique(obj_to_plot$site[(obj_to_plot$metric=="infectiousness")])){
 
 ##### Infectiousness Plots #####
 
-inf_sites <- c("dapelogo_2007","laye_2007")
-ddmp <- improvements %>% left_join(scores) %>% filter(site%in%inf_sites) %>% select(site,round,param_set)%>% distinct()
+ # Load laye reference data
+lay <- read.csv(file="../reference_datasets/laye_infectiousness.csv") %>%
+  select(month,agebin,densitybin,fraction_infected_bin,freq_frac_infect,site)
+# Load dapelogo reference data
+dap <- read.csv("../reference_datasets/dapelogo_infectiousness.csv")%>% select(month,agebin,densitybin,fraction_infected_bin,freq_frac_infect,site)
+# Combine reference datasets
+inf_ref <- rbind.data.frame(lay,dap) 
+remove(dap,lay)
+inf_ref <- inf_ref %>% filter(tolower(site) %in% tolower(inf_df$Site))
 
-ddmp <- scores %>% filter(site%in%inf_sites) %>% select(site,round,param_set)%>% distinct() %>% filter(param_set!=4)
+
+inf_sites <- c("dapelogo_2007","laye_2007")
+
+ddmp <- particles %>% left_join(scores) %>% filter(site%in%inf_sites) %>% select(site,round,param_set,label)%>% distinct() 
+
+ddmp <- ddmp %>% filter(grepl("default",label) | grepl("top",label) | grepl("infectiousness",label))
 
 ddmp = ddmp %>% arrange(-round,-param_set)
-
+ddmp
 for(i in 1:nrow(ddmp))
 {
   round=ddmp$round[i]
@@ -667,7 +721,7 @@ for(i in 1:nrow(ddmp))
                         "/infectiousness_by_age_density_month.csv",
                         sep='')) %>% 
           filter(param_set==ps & month %in% c(1,7,9)) %>%
-          mutate(round=round) 
+          mutate(round=round) %>% mutate(label=ddmp$label[i])
 
   temp$i <- i
   if(!(exists("inf_df"))) {
@@ -679,18 +733,103 @@ for(i in 1:nrow(ddmp))
 }
 
 
+inf_df %>%
+  ungroup()%>%
+  rename(site=Site) %>%
+  right_join(inf_ref) %>%
+  ggplot(aes(y=interaction(month,agebin,site),
+             x=interaction(densitybin,infectiousness_bin))) +
+  facet_wrap(~interaction(param_set,round)) +
+  theme_minimal(base_size=10)+
+  geom_tile(color="white",
+            aes(fill=sign(freq_frac_infect-infectiousness_bin_freq)*log10(abs(freq_frac_infect-infectiousness_bin_freq)))) +
+  theme(axis.text.x=element_text(angle=-90),
+        legend.position=c(1,0),
+        legend.justification=c(1,0),
+        legend.direction = "horizontal") +
+  scale_fill_distiller(palette="Spectral") +
+  labs(fill="diff")
+
+
+n_sites <- length(unique(inf_df$Site))
+n_dens_bins <- length(unique(inf_df$densitybin))
+n_inf_bins <- length(unique(inf_df$infectiousness_bin))
+n_age_bins <- length(unique(inf_df$agebin))
+n_months <- length(unique(inf_df$month))
+
+length_x = length(unique(interaction(inf_df$densitybin,inf_df$Site,inf_df$month)))
+length_y = length(unique(interaction(inf_df$agebin,inf_df$infectiousness_bin)))
+
+inf_df%>%
+    filter(interaction(month,agebin,Site) %in% interaction(inf_ref$month,inf_ref$agebin,inf_ref$site)) %>%
+    filter(Pop == max(Pop)) %>%
+    mutate(counts = infectiousness_bin_freq * Pop) %>%
+    group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin,label) %>%
+    summarize(counts=sum(counts)) %>%
+    group_by(i,Site,round,param_set,month,agebin,label) %>% mutate(total_count=sum(counts)) %>%
+    ungroup() %>%
+    mutate(freq_frac_infect=counts/total_count) %>%
+    left_join(inf_ref %>% rename(Site=site, ref_frac=freq_frac_infect, 
+                                 infectiousness_bin=fraction_infected_bin)) %>%
+    ggplot(aes(x=interaction(factor(densitybin),month.abb[month],Site),y=interaction(factor(infectiousness_bin),agebin)))+
+    geom_vline(xintercept=seq(0.5,length_x,n_dens_bins-1)) + # between months
+    geom_hline(yintercept=seq(0.5,length_y,n_inf_bins))+
+    facet_grid(label~.) +
+#paste(Site,'\n',month.name[month])) +
+    geom_tile(data=.%>%filter(freq_frac_infect>0.02 | ref_frac>0),
+              aes(fill=(freq_frac_infect-ref_frac)),
+              color="white") +
+    geom_point(data=.%>%filter(ref_frac>0),
+               aes(size=ref_frac)) +
+    theme_minimal(base_size=14) +
+    theme(axis.text.x=element_text(angle=-90,vjust=0,hjust=0)) +
+    #scale_color_distiller(palette="Spectral") +
+    scale_fill_distiller(palette="RdYlGn") +
+    labs(fill="Residual",size="Data") +
+    ylab("% Infectiousness to Mosquitos") +
+    xlab("Gametocyte Density") +
+    scale_size_continuous(range = c(0,2))
+
+
+inf_df%>%
+    filter(interaction(month,agebin,Site) %in% interaction(inf_ref$month,inf_ref$agebin,inf_ref$site)) %>%
+    filter(Pop == max(Pop)) %>%
+    mutate(counts = infectiousness_bin_freq * Pop) %>%
+    group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin,label) %>%
+    summarize(counts=sum(counts)) %>%
+    group_by(i,Site,round,param_set,month,agebin,label) %>% mutate(total_count=sum(counts)) %>%
+    ungroup() %>%
+    mutate(freq_frac_infect=counts/total_count) %>%
+    left_join(inf_ref %>% rename(Site=site, ref_frac=freq_frac_infect, 
+                                 infectiousness_bin=fraction_infected_bin)) %>%
+    ggplot(aes(x=interaction(factor(densitybin),month.abb[month],Site),y=interaction(factor(infectiousness_bin),agebin)))+
+    #geom_vline(xintercept=seq(0.5,length_x,n_dens_bins),linewidth=0.2,linetype=2) + # between months
+    geom_hline(yintercept=seq(0.5,length_y,n_inf_bins),linewidth=0.2,linetype=2)+
+    facet_grid(label~Site,scales="free_x") +
+#paste(Site,'\n',month.name[month])) +
+    theme_minimal(base_size=10) +
+    theme(axis.text.x=element_text(angle=-90,vjust=0,hjust=0)) +
+    #scale_color_distiller(palette="Spectral") +
+    scale_fill_distiller(palette="RdYlGn") +
+    labs(fill="Residual",size="Data") +
+    ylab("% Infectiousness to Mosquitos") +
+    xlab("Gametocyte Density") +
+    geom_point(data=.%>%filter(freq_frac_infect>0),
+               aes(color=label, size=freq_frac_infect),
+                   alpha=0.5) +
+    geom_point(data=inf_ref %>% 
+               #filter(densitybin>0)%>%
+               filter(freq_frac_infect>0)%>%
+               mutate(infectiousness_bin=fraction_infected_bin,
+                      Site=site),
+               aes(shape="reference",size=freq_frac_infect)) +
+    scale_shape_manual(values=c(21,16)) +
+    scale_size_area(max_size=4)
+    
 
 
 
-# Load laye reference data
-lay <- read.csv(file="../reference_datasets/laye_infectiousness.csv") %>%
-  select(month,agebin,densitybin,fraction_infected_bin,freq_frac_infect,site)
-# Load dapelogo reference data
-dap <- read.csv("../reference_datasets/dapelogo_infectiousness.csv")%>% select(month,agebin,densitybin,fraction_infected_bin,freq_frac_infect,site)
-# Combine reference datasets
-inf_ref <- rbind.data.frame(lay,dap) 
-remove(dap,lay)
-inf_ref <- inf_ref %>% filter(tolower(site) %in% tolower(inf_df$Site))
+
 
 #### Comparison preparation
 # Subset simulation data
@@ -698,9 +837,9 @@ inf_df %>%
   filter(month %in% unique(inf_ref$month), agebin %in% unique(inf_ref$agebin)) %>%
   filter(Pop == max(Pop)) %>%
   mutate(counts = infectiousness_bin_freq * Pop) %>%
-  group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin) %>%
+  group_by(i,Site,round,param_set,month,agebin,densitybin,infectiousness_bin,label) %>%
   summarize(counts=sum(counts)) %>%
-  group_by(i,Site,round,param_set,month,agebin) %>% mutate(total_count=sum(counts)) %>%
+  group_by(i,Site,round,param_set,month,agebin,label) %>% mutate(total_count=sum(counts)) %>%
   ungroup() %>%
   mutate(freq_frac_infect=counts/total_count) -> inf_df
 
@@ -724,8 +863,8 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
         facet_wrap(interaction(month.name[month],Site,sep=" in ")~agebin) +
         
         #scale_x_log10(breaks=unique(inf_df$densitybin)) +
-        geom_point(aes(color=factor(paste("Round",round,"#",param_set)),
-                       alpha=0.3)) +
+        geom_point(aes(color=gsub(" \\+ ","\n",label)),
+                   alpha=0.3) +
         geom_point(data=inf_ref %>% filter(site==s & agebin!=0.5)%>%
                      #filter(densitybin>0)%>%
                      filter(freq_frac_infect>0)%>%
@@ -743,19 +882,28 @@ for(s in inf_sites[which(inf_sites %in% inf_df$Site)]){
               axis.text.x=element_text(angle=45,hjust=1)) +
         xlab("Gametocyte Density") + ylab("Infectiousness Bin (%)") +
         labs(color=NULL, size=NULL,shape=NULL) -> pp
-      pp 
+      print(pp) 
       ggsave(paste(objectives_folder,paste(s,"infectiousness.png",sep="_"),sep='/'),pp,height = 10,width=10)
 }
 
 
+inf_df %>% 
+  rename(site=Site) %>%
+  ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin))) +
+  facet_wrap(site~interaction(label)) 
+
+
 for(i in 1:nrow(ddmp)){
+  
   s=ddmp$site[i]
   r=ddmp$round[i]
   ps=ddmp$param_set[i]
+  lab=ddmp$label[i]
   inf_df%>%
     rename(site=Site) %>%
     filter(site==s) %>%
-    filter(round==r & param_set==ps) %>%
+    filter(round==r & param_set==ps)%>%
+
     ggplot(aes(x=factor(densitybin),y=factor(infectiousness_bin)))+
     facet_grid(agebin~paste(month.name[month],2007))+
     geom_tile(aes(fill=freq_frac_infect),
@@ -767,7 +915,7 @@ for(i in 1:nrow(ddmp)){
     theme(axis.text.x=element_text(angle=-45,vjust=0,hjust=0)) +
     #scale_color_distiller(palette="Spectral") +
     scale_fill_distiller(palette="Spectral") +
-    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps),lab) -> p
   print(p)
     ggsave(paste(objectives_folder,paste(s,"infectiousness_plot1",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
 
@@ -793,7 +941,7 @@ for(i in 1:nrow(ddmp)){
     ylab("% Infectiousness to Mosquitos") +
     xlab("Gametocyte Density")+
     scale_size_continuous(range = c(0,2)) +
-    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps),lab) -> p
   print(p)
     ggsave(paste(objectives_folder,paste(s,"infectiousness_plot2",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
 
@@ -820,10 +968,9 @@ for(i in 1:nrow(ddmp)){
     ylab("% Infectiousness to Mosquitos") +
     xlab("Gametocyte Density")+
     scale_size_continuous(range = c(0,2)) +
-    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) -> p
-    ggsave(paste(objectives_folder,paste(s,"infectiousness_plot3",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
-
-  print(p)
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps),lab) -> p
+  print(p)  
+  ggsave(paste(objectives_folder,paste(s,"infectiousness_plot3",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
   
   
   
@@ -848,7 +995,7 @@ for(i in 1:nrow(ddmp)){
     xlab("Gametocyte Density")+
     scale_size_continuous(range = c(0,2)) +
     scale_shape_manual(values=c(21,21))+
-    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps)) +
+    ggtitle(paste(gsub('.{5}$', '',s),"round",r,"#",ps),lab) +
     guides(size=guide_legend(order=2))-> p
   print(p)
     ggsave(paste(objectives_folder,paste(s,"infectiousness_plot4",r,ps,".png",sep="_"),sep='/'),p,height = 10,width=10)
@@ -859,4 +1006,18 @@ remove(inf_df)
 ```
 
 
+### Out of Sample
+
+# Prevalence vs. Incidence Curves
+
+```{r}
+oos_prev_inc <- read_csv("~/b1139/within-host-calibration/reference_datasets/oos_prev_inc.csv")
+
+oos_prev_inc %>%
+  ggplot(aes(x=pfpr,y=incidence)) +
+  geom_point() +
+  scale_x_continuous(limits=c(0,1)) +
+  scale_y_continuous(limits=c(0,1.5))
+
+```
 

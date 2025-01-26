@@ -7,7 +7,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 pd.options.mode.chained_assignment = None  # default='warn'
 import os
-import manifest as manifest
+from simulations import manifest
 from simulations.helpers import load_coordinator_df
 
 from simulations.compare_to_data.age_incidence_comparison import compute_inc_LL_for_all_sites, \

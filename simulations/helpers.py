@@ -11,13 +11,14 @@ import emod_api.demographics.Demographics as Demographics
 
 from emodpy_malaria.interventions.diag_survey import add_diagnostic_survey
 
-from emodpy_malaria.reporters.builtin import add_malaria_summary_report, MalariaPatientJSONReport
+from emodpy_malaria.reporters.builtin import add_malaria_summary_report, MalariaPatientJSONReport, add_malaria_survey_analyzer
 from emodpy_malaria import malaria_config as malconf
 from emodpy_malaria.interventions.drug_campaign import add_drug_campaign
 from emodpy_malaria.interventions.treatment_seeking import add_treatment_seeking
 from emodpy_malaria.interventions.usage_dependent_bednet import add_scheduled_usage_dependent_bednet 
 from emodpy_malaria.interventions.inputeir import add_scheduled_input_eir
 from emod_api.interventions.common import BroadcastEvent
+sys.path.append('./')
 import manifest as manifest
 
 def update_sim_random_seed(simulation, value):
@@ -25,7 +26,7 @@ def update_sim_random_seed(simulation, value):
     return {"Run_Number": value}
 
 def mAb_vs_EIR(EIR):
-    # Rough cut at function from eyeballing a few BinnedReport outputs parsed into antibody fractions
+    # Rough cut at function from eyeballing a few BinnedReport outputs parsed into antibody fractions (MR)
     mAb = 0.9 * (1e-4*EIR*EIR + 0.7*EIR) / ( 0.7*EIR + 2 )
     return min(mAb, 1.0)
 
@@ -66,7 +67,7 @@ def set_param_fn(config):
     config = malconf.set_team_defaults(config, manifest)
     # config = set_config.set_config(config)
     config.parameters.Max_Individual_Infections = 20
-    config.parameters.Innate_Immune_Variation_Type = "CYTOKINE_KILLING"
+    config.parameters.Innate_Immune_Variation_Type = "PT_CK_DUAL"
     config.parameters.Enable_Birth = 1
     # #config.parameters.Enable_Coinfection = 1
     # config.parameters.Enable_Demographics_Birth = 1
@@ -100,6 +101,12 @@ def set_param_fn(config):
     
     # add biting heterogeneity
     config.parameters.Enable_Demographics_Risk = 1
+    
+    # long-term immune decay
+    config.parameters.Antibody_Days_To_Long_Term_Decay = 365 # 3.40282e+38 (?!)
+    # The number of days since the antibody (MSP & EMP1) was last active to start the long term decay of the concentration.
+    config.parameters.Antibody_Long_Term_Decay_Days = 60  # 3650
+    # The exponential decay time for an antibody (MSP & EMP1) concentration (in days) after the time since the antibody was last active exceeds Antibody_Days_To_Long_Term_Decay.
     
     return config
 
@@ -203,7 +210,14 @@ def set_simulation_scenario(simulation, site, csv_path):
         simulation.task.config.parameters.Report_Event_Recorder = 1
         simulation.task.config.parameters.Report_Event_Recorder_Events = ['parasites_on_survey_day']
         simulation.task.config.parameters.Custom_Individual_Events = ['parasites_on_survey_day']
-
+    
+    add_malaria_survey_analyzer(simulation.task, manifest=manifest,
+                                start_day = simulation_duration-1,
+                                end_day = simulation_duration,
+                                event_trigger_list=["EveryUpdate"],
+                                reporting_interval = 1,
+                                max_number_reports = 1)
+    
     return {"Site": site, 'csv_path': str(csv_path)}
 
 

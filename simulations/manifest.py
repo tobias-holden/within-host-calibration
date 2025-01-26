@@ -17,7 +17,7 @@ singularity_id = "8df53802-53f3-ec11-a9f9-b88303911bc1"
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = CURRENT_DIR.parent
-DOWNLOAD_DIR = CURRENT_DIR / "download" / "bin_230614_PT"
+DOWNLOAD_DIR = CURRENT_DIR / "download" / "bin_250110_maxPT50k"
 
 # The script is going to use this to store the downloaded schema file. Create 'download' directory or change to your preferred (existing) location.
 schema_file = DOWNLOAD_DIR / "schema.json"
@@ -43,7 +43,7 @@ input_files_path = PROJECT_DIR / "simulation_inputs"
 base_script_plot_filepath = PROJECT_DIR / "create_plots"
 base_reference_filepath = PROJECT_DIR / "reference_datasets"
 plot_output_filepath = PROJECT_DIR / "report" / "_plots"
-python_plot_output_filepath = PROJECT_DIR / "report" / "_plots_Python"
+python_plot_output_filepath = PROJECT_DIR / "report" / ""
 
 
 # TODO: remove following lines

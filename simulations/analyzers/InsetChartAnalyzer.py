@@ -18,7 +18,60 @@ from idmtools.core.platform_factory import Platform
 mpl.use('Agg')
 
 
-class InsetChartAnalyzer(BaseAnalyzer):
+
+class InsetChartAnalyzer(IAnalyzer):
+    """
+    Pull out the ReportEventRecorder and stack them together.
+    """
+
+    def __init__(
+        self, channels, sweep_variables, working_dir="./", start_day=0, end_day=99999
+    ):
+        super(InsetChartAnalyzer, self).__init__(
+            working_dir=working_dir, filenames=["output/InsetChart.json"]
+        )
+        self.sweep_variables = sweep_variables
+        self.channels = channels
+        self.start_day = start_day
+        self.end_day = end_day
+
+    def map(self, data, simulation: Simulation):
+        df = pd.DataFrame(
+            {x: data[self.filenames[0]]["Channels"][x]["Data"] for x in self.channels}
+        )
+        df["time"] = df.index
+        df = df[
+            (df["time"] >= self.start_day) & (df["time"] <= self.end_day)
+        ]
+        df["day"] = df["time"] % 365 + 1
+        df["year"] = df["time"] // 365
+
+        # add tags
+        for sweep_var in self.sweep_variables:
+            if sweep_var in simulation.tags.keys():
+                df[sweep_var] = simulation.tags[sweep_var]
+
+        return df
+
+    def reduce(self, all_data):
+        selected = [data for sim, data in all_data.items()]
+        if len(selected) == 0:
+            print("\nWarning: No data have been returned... Exiting...")
+            return
+
+        adf = pd.concat(selected).reset_index(drop=True)
+        adf.to_csv(
+            (os.path.join(self.working_dir, "InsetChart.csv")),
+            index=False,
+            index_label=False,
+        )
+
+
+
+
+
+
+class InsetChartAnalyzer2(BaseAnalyzer):
     def __init__(self, title='idm', tags=None):
         super().__init__(filenames=["output\\InsetChart.json"])
         if tags is None:
