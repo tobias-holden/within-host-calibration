@@ -1,17 +1,29 @@
-parameter_id,parameter_label,parameter_name,min,max,transform,class,description,type,emod_min,emod_max,emod_default,team_default
-1,Antibody_Days_To_Long_Term_Decay,Antibody_Days_To_Long_Term_Decay,30,1825,none,immunity,NA,integer,NA,NA,365000,730
-2,Antibody_Long_Term_Decay_Days,Antibody_Long_Term_Decay_Days,365,3650,none,immunity,NA,integer,NA,NA,3650,3650
-3,Antigen Switch Rate,Antigen_Switch_Rate,1E-11,0.001,log,immunity,The antigenic switching rate per infected red blood cell per asexual cycle. See Parasite_Switch_Type for different switching patterns.,double,NA,NA,0.000000002,7.65E-10
-6,Gametocyte Production Rate,Base_Gametocyte_Production_Rate,0.01,1,log,parasite,The fraction of infected red blood cells producing gametocytes,double,NA,NA,0.02,0.0615
-7,Falciparum MSP Variants,Falciparum_MSP_Variants,1,1000,log,immunity,"The number of distinct merozoite surface protein variants for P. falciparum malaria in the overall parasite population in the simulation, not necessarily in an individual",integer,0,1000,100,32
-8,Falciparum Nonspecific Types,Falciparum_Nonspecific_Types,1,1000,none,immunity,The number of distinct non-specific types of P. falciparum malaria,integer,0,1000,20,76
-9,Falciparum PfEMP1 Variants,Falciparum_PfEMP1_Variants,1,20000,log,immunity,The number of distince Plasmodium falciparum erythrocyte membrane protein 1 (PfEMP1) variants for P falciparum malaria in the overall parasite population in the simulation,integer,0,100000,1000,1070
-10,Max Fever Kill Rate of iRBCs,Fever_IRBC_Kill_Rate,0.1,1000,log,immunity,"The maximum kill rate for infected red blood cells due to the inflammatory innate immune response. As fever increases above 38.5 degrees Celsius, the kill rate becomes succesively higher along a sigmoidal curve approaching this maximal rate",float,0,1000,0.15,1.4
-12,MSP Merozoite Kill Fraction,MSP1_Merozoite_Kill_Fraction,0.01,1,none,immunity,The fraction of merozoites inhibited from invading new erythrocytes when MSP1-specific antibody level is 1,double,NA,NA,0.5,0.511735322
-13,Nonspecific Antibody Growth Rate Factor,Nonspecific_Antibody_Growth_Rate_Factor,0.01,1000,log,immunity,The factor that adjusts Antibody_Capacity_Growth_Rate for less immunogenic surface proteins called minor epitopes,float,0,1000,0.5,0.5
-14,Nonspecific Antigenicity Factor,Nonspecific_Antigenicity_Factor,0.000000001,1,none,immunity,The nonspecific antigenicity factor that adjusts antibody iRBC kill rate to account for iRBCs caused by antibody responses to antigenically weak surface proteins,double,NA,NA,0.2,0.4151
-15,Pyrogenic Threshold,Pyrogenic_Threshold,50,50000,log,immunity,"The level of bloodstream infection, measured in iRBC per microliter, at which stimulation of the innate inflammatory immune respnose is half its maximum value",float,0,2000000,1000,5071
-17,Innate Immune Distribution Flag,InnateImmuneDistributionFlag,5.0,5.99,none,immunity,NA,demog,NA,NA,NA,5.9
-16,InnateImmuneDistribution1,InnateImmuneDistribution1,0,1,none,immunity,NA,demog,NA,NA,NA,1.0
-18,InnateImmuneDistribution2,InnateImmuneDistribution2,0,1,none,immunity,NA,demog,NA,NA,NA,1.0
-19,MaxIndividualInfections,Max_Individual_Infections,20,20,none,infection,NA,integer,NA,NA,NA,3
+parameter_id,parameter_label,parameter_name,min,max,team_default,transform,source,class,type,description
+0,Max_Individual_Infections,Max_Individual_Infections,20,20,3,none,TH,innate_immunity,integer,NA
+1,Antibody_Days_To_Long_Term_Decay,Antibody_Days_To_Long_Term_Decay,180,730,365000,none,TH,adaptive_immunity,integer,number of days antibody capacity remains at memory level before decaying further
+2,Antibody_Long_Term_Decay_Days,Antibody_Long_Term_Decay_Days,365,3650,365,none,TH,adaptive_immunity,integer,exponential decay time for an antibody (MSP or PfEMP1) capacity (in days) after being inactive
+3,Antigen Switch Rate,Antigen_Switch_Rate,1.00E-11,1.00E-07,7.65E-10,log,KM,adaptive_immunity,double,The antigenic switching rate per infected red blood cell per asexual cycle. See Parasite_Switch_Type for different switching patterns.
+4,Falciparum MSP Variants,Falciparum_MSP_Variants,5,100,32,none,KM,adaptive_immunity,integer,"The number of distinct merozoite surface protein variants for P. falciparum malaria in the overall parasite population in the simulation, not necessarily in an individual"
+5,MSP Merozoite Kill Fraction,MSP1_Merozoite_Kill_Fraction,0.4,0.7,0.511735322,none,PS,adaptive_immunity,double,The fraction of merozoites inhibited from invading new erythrocytes when MSP1-specific antibody level is 1
+6,Falciparum Nonspecific Types,Falciparum_Nonspecific_Types,5,100,76,none,PS,adaptive_immunity,integer,The number of distinct non-specific types of P. falciparum malaria
+7,Nonspecific Antibody Growth Rate Factor,Nonspecific_Antibody_Growth_Rate_Factor,0.01,1,0.5,none,TH,adaptive_immunity,float,The factor that adjusts Antibody_Capacity_Growth_Rate for less immunogenic surface proteins called minor epitopes
+8,Nonspecific Antigenicity Factor,Nonspecific_Antigenicity_Factor,0.1,0.9,0.4151,none,PS,adaptive_immunity,double,The nonspecific antigenicity factor that adjusts antibody iRBC kill rate to account for iRBCs caused by antibody responses to antigenically weak surface proteins
+9,Falciparum PfEMP1 Variants,Falciparum_PfEMP1_Variants,500,2500,1070,none,KM,adaptive_immunity,integer,The number of distince Plasmodium falciparum erythrocyte membrane protein 1 (PfEMP1) variants for P falciparum malaria in the overall parasite population in the simulation
+10,Antibody iRBC Kill Rate,Antibody_IRBC_Kill_Rate,1,10,1.596,log,TH,adaptive_immunity,double,The scale factor multiplied by antibody level to produce the rate of clearance of the infected red blood cell (IRBC) population.
+11,Gametocyte Mosquito Stage Survival Rate,Base_Gametocyte_Mosquito_Survival_Rate,0.00001,0.5,0.002011099,log,TH,infectiousness,float,"Average fraction of gametocytes in a blood meal that are successful in infecting the mosquito in the absence of other modulating effects, such as fever."
+12,Cytokine Gametocyte Inactivation,Cytokine_Gametocyte_Inactivation,0.001,0.5,0.01667,log,TH,infectiousness,float,The strength of mosquito inflammatory response inactivation of gametocytes.
+13,Max Fever Kill Rate of iRBCs,Fever_IRBC_Kill_Rate,1,100,1.4,log,TH,innate_immunity,float,"The maximum kill rate for infected red blood cells due to the inflammatory innate immune response. As fever increases above 38.5 degrees Celsius, the kill rate becomes succesively higher along a sigmoidal curve approaching this maximal rate"
+14,Pyrogenic Threshold,Pyrogenic_Threshold,50,50000,15000,log,TH,innate_immunity,float,"The level of bloodstream infection, measured in iRBC per microliter, at which stimulation of the innate inflammatory immune respnose is half its maximum value"
+15,InnateImmuneDistribution2,InnateImmuneDistribution2,0,1,1,none,TH,innate_immunity,demog,
+16,Maternal Antibody Protection,Maternal_Antibody_Protection,0.001,1,0.1327,none,KM,innate_immunity,float,The strength of protection from maternal antibodies as a multiple of full antibody killing effect.
+17,Gametocyte Production Rate,Base_Gametocyte_Production_Rate,0.001,0.5,0.0615,log,PS,parasite,double,The fraction of infected red blood cells producing gametocytes
+18,Gametocyte Fraction Male,Base_Gametocyte_Fraction_Male,0.01,0.5,0.2,none,TH,parasite,double,Fraction of gametocytes that are male.
+19,Gametocyte Human Stage Survival Rate,Gametocyte_Stage_Survival_Rate,0.5,0.95,0.588569307,none,PS,parasite,double,The rate of gametocyte survival from one development stage to the next in the absence of drugs or inflammatory immune response.
+20,Severe Anemia Threshold,Anemia_Severe_Threshold,2.5,5,4.50775825,none,TH,severe_malaria,float,severe disease threshold level for anemia. Threshold units are in grams per deciliter (g/dL).
+21,Severe Anemia Inverse Width,Anemia_Severe_Inverse_Width,0,50,10,none,TH,severe_malaria,float,inverse width relative to threshold value of severe disease turn-on around threshold for anemia
+22,Severe Fever Threshold,Fever_Severe_Threshold,3,7,3.983542997,none,KM,severe_malaria,float,threshold (in degrees Celsius above normal) for fever indicating severe disease.
+23,Severe Fever Inverse Width,Fever_Severe_Inverse_Width,0,50,27.56535804,none,KM,severe_malaria,float,inverse width relative to threshold value of mortality turn-on around threshold for fever
+24,Severe Parasitemia Threshold,Parasite_Severe_Threshold,100000,851035,851031.2877,none,KM,severe_malaria,float,parasite density threshold level that results in severe disease. 350000 KM paper
+25,Severe Parasitemia Inverse Width,Parasite_Severe_Inverse_Width,0,60,56.5754896,none,KM,severe_malaria,float,inverse width relative to threshold value of severe disease turn-on around threshold for parasite density. 50 KM Paper
+26,RBC Destruction Multiplier,RBC_Destruction_Multiplier,2.5,5,3.29,none,KM,severe_malaria,double,The number of total red blood cells destroyed per infected rupturing schizont.
+37,Erythropoiesis Anemia Effect,Erythropoiesis_Anemia_Effect,2.5,5,3.5,none,TH,severe_malaria,float,The exponential rate of increased red-blood-cell production from reduced red-blood-cell availability.

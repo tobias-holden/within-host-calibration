@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import torch
-
+from scipy.stats import rankdata
 from botorch.utils.transforms import unnormalize
 
 from gpytorch.constraints import Interval, GreaterThan, LessThan
@@ -31,8 +31,9 @@ from torch import tensor
 
 torch.set_default_dtype(torch.float64)
 
-exp_label = "250126"
-
+exp_label = "ricky_test"
+phase_0_exp = ""
+phase = 0
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
@@ -51,6 +52,121 @@ success_limit = int(calib_coord.at["success_limit",1])
 
 param_key=pd.read_csv("parameter_key.csv")
 n_params=int(param_key.shape[0])
+
+
+# # Define ECDF function
+# def ecdf(values, y_train_ll):
+#     combined_values = np.concatenate([values, y_train_ll])  # Combine 'values' from Y1 with 'll' from Y2
+#     return rankdata(combined_values) / len(combined_values)  # ECDF based on combined values
+# 
+# # Calculate ECDF for Y1 using values from both Y1 and Y0
+# def compute_ecdf_for_Y1(Y1, Y0):
+#     # Initialize a list to store the transformed ECDF values for each row in Y1
+#     ecdf_values = []
+#     Y1=pd.concat([Y1,Y0])
+#     # Group by 'site' and 'metric' and apply ECDF calculation to 'll' column
+#     for (site, metric), group in Y1.groupby(['site', 'metric']):
+#         # Get 'll' values from the current group in Y1
+#         group_values = group['raw_ll'].values
+#         #print("group_values")
+#         #print(len(group_values))
+#         # Get the corresponding 'll' values from Y0 for the same 'site' and 'metric'
+#         y_train_ll = Y1[(Y1['site'] == site) & (Y1['metric'] == metric)]['raw_ll'].values
+#         # Compute ECDF for this group using both Y1 and Y0 'll' values
+#         if metric != "no_blood":
+#             ecdf_values_group = ecdf(group_values, [])
+#         else:
+#             ecdf_values_group=group_values
+#         # Add the ECDF values for the group to the list (to match the original number of rows in group)
+#         #print("ecdf_values_group")
+#         #print(len(ecdf_values_group))
+#         ecdf_values.extend(ecdf_values_group[:len(group)])  # # # Only use ECDF values corresponding to the group size
+#     # Assign the computed ECDF values to the 'll' column in Y1
+#     Y1['ll'] = ecdf_values
+#     Y1.loc[Y1['metric'] == 'no_blood', 'll'] = Y1.loc[Y1['metric'] == 'no_blood', 'raw_ll']
+# 
+#     Y1.loc[(Y1['metric']=="no_blood") & (Y1['ll']==0), 'll'] = 1
+#     Y1.loc[(Y1['metric']=="no_blood") & (Y1['ll']<0), 'll'] = -1
+#     Y1=Y1.reset_index(drop=True)
+#     print(Y1)
+#     # Ensure that the function returns the modified Y1 DataFrame
+#     return Y1
+
+
+def ecdf(values):
+    # Combine 'values' from Y1 with 'll' from Y0 for ECDF calculation
+    combined_values = values
+    return rankdata(combined_values) / len(combined_values)  # ECDF based on combined values
+
+def compute_ecdf_for_Y1(Y1, Y0):
+    # Preserve the original index for Y1 and Y0 so that we can easily restore it later
+    
+    Y0['original_index'] = Y0.index
+    Y1['original_index'] = Y1.index + len(Y0)
+    # Concatenate Y1 and Y0 but keep track of their original indices
+    combined_df = pd.concat([Y0, Y1])
+    print(combined_df)
+    # Initialize a list to store the transformed ECDF values for each row in the combined dataframe
+    ecdf_values = []
+    
+    # Group by 'site' and 'metric' and calculate ECDF for the combined data
+    for (site, metric), group in combined_df.groupby(['site', 'metric']):
+      
+        print(f"Converting raw {metric} LL to ECDF for {site}")
+        # Get 'raw_ll' values from the current group
+        #group_values = group['raw_ll'].values
+        group_values = combined_df[(combined_df['site']==site) & (combined_df['metric']==metric)]['raw_ll'].values
+        
+        # Handle NaN values: replace NaNs with 0 for all metrics except 'no_blood', where it's -1
+        if metric != "no_blood":
+            group_values = np.nan_to_num(group_values, nan=0)  # Replace NaNs with 0 for non-'no_blood' metrics
+        else:
+            group_values = np.where(np.isnan(group_values), -1, group_values)  # Replace NaNs with -1 for 'no_blood'
+
+        
+        # Compute ECDF for this group using both Y1 and Y0 'raw_ll' values
+        ecdf_values_group = ecdf(group_values)
+        print(ecdf_values_group)
+        print(type(ecdf_values_group))
+        print(f"size: {len(group)}")
+        print(f"range: {np.min(ecdf_values_group)}-{np.max(ecdf_values_group)}")
+        #print(ecdf_values_group)
+        #print(ecdf_values_group.shape)
+        #print(len(group))
+        # Append ECDF values for the group to the list
+        ecdf_values.extend(ecdf_values_group[-len(group):])
+        
+        # Assign the computed ECDF values back to the combined dataframe
+        combined_df.loc[(combined_df["metric"]==metric) & (combined_df['site']==site),'ecdf']=ecdf_values_group
+        #print(combined_df.loc[(combined_df["metric"]==metric) & (combined_df['site']==site)].to_string())
+        
+    #combined_df['ecdf'] = ecdf_values
+    # Now, instead of using 'isin()', directly align based on 'original_index'
+    Y1['ll'] = combined_df.set_index('original_index').loc[Y1['original_index'], 'ecdf'].values
+    Y0['ll'] = combined_df.set_index('original_index').loc[Y0['original_index'], 'ecdf'].values
+    #print(Y0.shape)
+    #print(Y0)
+    # Specific adjustments for 'no_blood' metric cases
+    # Only adjust 'll' values for 'no_blood' where 'raw_ll' is NaN
+    Y1.loc[(Y1['metric'] == 'no_blood') & (Y1['raw_ll'].isna()), 'll'] = -1
+    Y0.loc[(Y0['metric'] == 'no_blood') & (Y0['raw_ll'].isna()), 'll'] = -1
+
+    # Assign 'raw_ll' to 'll' for 'no_blood' metric cases
+    Y1.loc[Y1['metric'] == 'no_blood', 'll'] = Y1.loc[Y1['metric'] == 'no_blood', 'raw_ll']
+    Y0.loc[Y0['metric'] == 'no_blood', 'll'] = Y0.loc[Y0['metric'] == 'no_blood', 'raw_ll']
+
+    # Adjust ECDF for "no_blood" metric cases
+    Y1.loc[(Y1['metric'] == "no_blood") & (Y1['ll'] == 0), 'll'] = 1
+    Y1.loc[(Y1['metric'] == "no_blood") & (Y1['ll'] < 0), 'll'] = -1
+    Y0.loc[(Y0['metric'] == "no_blood") & (Y0['ll'] == 0), 'll'] = 1
+    Y0.loc[(Y0['metric'] == "no_blood") & (Y0['ll'] < 0), 'll'] = -1
+    
+    #print(Y0)
+    #print(Y1)
+    
+    # Ensure that the function returns the modified Y1 and Y0 DataFrames
+    return Y1, Y0
+
 # Define the Problem, it must be a functor
 class Problem:
     def __init__(self,workdir="checkpoints/emod"):
@@ -84,131 +200,200 @@ class Problem:
         param_key=pd.read_csv("parameter_key.csv")
         wdir=os.path.join(f"{self.workdir}/LF_{self.n}")
         os.makedirs(wdir,exist_ok=True) 
-        # if self.n == 4:
-        #     Y0 = compute_LL_across_all_sites_and_metrics(numOf_param_sets=100)
-        #     X = pd.read_csv(f"{self.workdir}/LF_4/translated_params.csv")
-        #     X = X['unit_value']
-        #     #print(X)
-        #     X = [eval("torch." + x) for x in X]
-        #     #print(X)
-        #     X = [x.item() for x in X]
-        #     #print(X)
-        #     X = torch.tensor(X)
-        #     X = torch.reshape(X,(100,self.dim))
-        #     
-        #     
-        # else:
-        #     Y0 = myFunc(X,wdir)
-        Y0 = myFunc(X,wdir)
-        Y1 = Y0
-        
-        if self.n == 0:
+        if self.n>0:
+            Y0=myFunc(X,wdir)
+            #Y0=compute_LL_across_all_sites_and_metrics(5)
             Y0['round'] = [self.n] * len(Y0)
-            Y0.to_csv(f"{self.workdir}/all_LL.csv",index=False)
+            Y0['raw_ll'] = Y0['ll']
+            X0=torch.load(f"/projects/b1139/within-host-calibration/simulations/output/{exp_label}/X.pt")
+            y_train = pd.read_csv(f"{self.workdir}/all_LL.csv")
+            y_train = y_train[y_train['round']<self.n]
+            y_new = Y0
+            
+            Y1,Y_train = compute_ecdf_for_Y1(y_new, y_train)
+            #print(Y1.shape)
+            
+            
         else:
-            Y0['round'] = [self.n] * len(Y0)
-            score_df=pd.read_csv(f"{self.workdir}/all_LL.csv")
-            score_df=pd.concat([score_df,Y0])
-            score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
-        
+            if phase == 1:
+                Y0=pd.read_csv(f'/projects/b1139/within-host-calibration/simulations/output/{phase_0_exp}/all_LL.csv')
+                X0=torch.load(f'/projects/b1139/within-host-calibration/simulations/output/{phase_0_exp}/X.pt')
+                X=torch.cat([X0,X])
+                Y0['raw_ll']=Y0['ll']
+                Y0['round'] = (Y0['round']*-1) - 1
+                Y0['param_set']= Y0['param_set'] * -1
+            else:
+                Y0=myFunc(X,wdir)
+                Y0['round'] = [self.n] * len(Y0)
+                Y0['raw_ll']=Y0['ll']
+            #if exp_label == "debug":
+            #    X0=X0[[range(100)]]
+            #    Y0=Y0[Y0['round']==0]
+            #    Y0['raw_ll']=Y0['ll']
+            #    Y0['round'] = (Y0['round']*-1) - 1
+            #    Y0['param_set']= Y0['param_set'] * -1
+            #    #print(X.shape)
+            
+            
+            #print(Y0)
+            #print(Y0.shape)
+            column_names = Y0.columns
+            y_empty = pd.DataFrame(columns=column_names)
+            Y1,Y_train = compute_ecdf_for_Y1(y_empty, Y0)
+            #print(Y1)
+            #print(Y1.shape)
+            #Y1=Y1[Y1['metric'] != "infectiousness"]
+            
+            
         ## Apply weights
-        Y1['ll'] = (Y1['ll']) * (Y1['my_weight']) # weighting by general 'order' of baseline score
-        #Y1['ll'] = Y1['ll']
-        # Temporary fix to recognize that post-weighting zero (0) LL is bad
-        Y1.loc[(Y1['metric'] == 'infectiousness') & (Y1['ll'] == 0), 'll'] = -10000
-        Y1.loc[(Y1['metric'] == 'incidence') & (Y1['ll'] == 0), 'll'] = -10000
-        Y1.loc[(Y1['metric'] == 'severe_incidence') & (Y1['ll'] == 0), 'll'] = -10000
-        Y1.loc[(Y1['metric'] == 'prevalence') & (Y1['ll'] == 0), 'll'] = -10000
-        Y1.loc[(Y1['metric'] == 'asex_density') & (Y1['ll'] == 0), 'll'] = -10000
-        Y1.loc[(Y1['metric'] == 'gamet_density') & (Y1['ll'] == 0), 'll'] = -10000
+        ########################################################################
+        # in Phase 0 - unweighted #
+        # if phase == 0:
+        #     Y1['ll'] = Y1['ll']
+        #     Y1['raw_ll']=Y1['ll']
+        # elif phase == 1:
+        #   # Weight as ecdf() vs. all observations plus phase0:
+        #     y_train = pd.read_csv('/projects/b1139/within-host-calibration/simulations/output/250307_phase0_fixGarki/all_LL.csv')
+        #     if(self.n>0):
+        #         y_curr=pd.read_csv(f"{self.workdir}/all_LL.csv")
+        #         y_train=pd.concat([y_train,y_curr],join='inner')
+        #     Y1['raw_ll']=Y1['ll']
+        #     y_train['raw_ll']=y_train['raw_ll']
+        #     Y1 = compute_ecdf_for_Y1(Y1, y_train)
+        #     Y1=Y1[Y1['metric'] != "infectiousness"]
+
+        ########################################################################
         
-        Y = Y1.groupby("param_set").agg({"ll": lambda x: x.sum(skipna=False)}).reset_index().sort_values(by=['ll'])
-        #Ym = Y1.groupby("param_set").agg({"ll": lambda x: x.min(skipna=False)}).reset_index().sort_values(by=['ll'])
+        Y1 = pd.concat([Y_train,Y1])
+        #print(Y1)
+        #Y = Y1.groupby(["param_set","round"]).agg({"ll": lambda x: x.sum(skipna=False)}).sort_values(by=['round','param_set'],ascending=False).reset_index()
+        Y1.to_csv(f"{self.workdir}/working_LL.csv",index=False)
+        #print(Y1)
+        #print(Y1['param_set'])
+        #print(type(Y1['param_set']))
+        #print(Y1['round'])
+        #print(type(Y1['round']))
+        
+        Y1['param_set'] = Y1['param_set'].astype(int).values
+        Y1['round'] = Y1['round'].astype(int).values
+        Y1['ll']= Y1['ll'].astype(float)
+        #print(Y1)
+        Y1['param_set'] = Y1['param_set'].abs()
+        Y = Y1.groupby(['round','param_set'])['ll'].sum().reset_index()
+        #print(Y)
+        print("passed")
         params=Y['param_set']
         Y = Y['ll']
-        #Ym=Ym['ll']
-        if self.n==0:
+        if self.n==0 and phase==0: #you only want to do this when you include the team default. (because it only has 3 max infections).
+            #if you get errors due to miss match in comparisons its because of this.
             # Mask score for team default X_prior
+            print(f"score to hide : {Y[0]}")
             Y[0]= float("nan")
-            Y[1]= float("nan")
-            Y[2]= float("nan")
-            Y[3]= float("nan")
-            Y[4]= float("nan")
-            Y[5]= float("nan")
-         #   Ym[0]= float("nan")
             
+        if os.path.exists(f"{self.workdir}/all_LL.csv"):
+            #Y0['round'] = [self.n] * len(Y0)
+            # score_df=pd.read_csv(f"{self.workdir}/all_LL.csv")
+            # score_df=pd.concat([score_df,Y1])
+            # score_df.to_csv(f"{self.workdir}/all_LL.csv",index=False)
+            Y1.to_csv(f"{self.workdir}/all_LL.csv",index=False)
+        else:
+            #Y1['round'] = [self.n] * len(Y1)
+            Y1.to_csv(f"{self.workdir}/all_LL.csv",index=False)
+        
+        
+        #Entering the output phase:
         xc = []
         yc = []
-        #ym = []
-        ysc = []
         pc = []
-        
+        diff=len(Y)-len(X)      # How many of the parameter values are from BEFORE this round
+        #print(f"Diff: {diff}")
         for j in range(len(Y)):
-            if pd.isna(Y[j]):
+            if j == 0 and self.n == 0:
+                continue
+            elif pd.isna(Y[j]):
                 continue
             else:
-                xc.append(X[j].tolist())
-                yc.append([Y[j]])
-                #ym.append([Ym[j]])
-                sub=Y1[Y1['param_set']==params[j]]
-                ysc.append(sub['ll'].to_list())
+                yc.append(Y[j])
                 pc.append(params[j])
-        
-        xc2=[tuple(i) for i in xc]
-        links=dict(zip(xc2,yc)) 
+                if j < diff:
+                    #print("add filler param set to X")
+                    #important to maintain shape of xc, but most scores arent used (aren't relevant)
+                    xc.append(torch.rand(1,self.dim).tolist())
+                else:
+                    #print(f"xc: {xc}")
+                    #print(f"x to add: {X[j-diff]}")
+                    xc.append(X[j-diff].tolist())
+        ##########################    
+        to_keep=len(xc)
+        xc2 = [tuple(item) if isinstance(item, list) else item for item in xc]
+        yc = [tuple(item) if isinstance(item, list) else item for item in yc]
+        xc2 = [tuple(item[0]) if isinstance(item[0], list) else item for item in xc2]
+        # Flatten yc by extracting the scalar value from the tuple
+        #yc = [item[0] for item in yc]
+        # Check the updated xc2 and yc
+        #print("xc2:", xc2)
+        #print("yc:", yc)
+        # Now you should be able to create the dictionary
+        if self.n > 0:
+            pre_x=xc2[:-batch_size]
+            pre_y=yc[:-batch_size]
+            pre_p=pc[:-batch_size]
+            xc2=xc2[-batch_size:]
+            yc=yc[-batch_size:]
+            pc=pc[-batch_size:]
+            pre_links=dict(zip(pre_x,pre_y))
+            pre_pset=dict(zip(pre_p,pre_y))
+            self.y_max= max(pre_links.values())
+        links = dict(zip(xc2, yc))
         pset=dict(zip(pc,yc))
-        #links_m=dict(zip(xc2,ym))
-        #pset_m=dict(zip(pc,ym))
         
-        X_out = torch.tensor(xc,dtype=torch.float64)
-        #print("X_out")
-        #print(X_out)
-        
-        Y_out = torch.tensor(yc)
-        #Y_m_out = torch.tensor(ym)
-        #Y_out = torch.stack([torch.tensor(y) for y in ysc],-1)
-        #print("Y_out")
-        #print(Y_out)
+        if self.n > 0 :
+            X_out = torch.tensor(xc[-batch_size:],dtype=torch.float64)   # tp append only this round's parameters
+            #print(X_out.shape)
+            Y_out = torch.tensor(yc[-batch_size:])                       # to append only this round's scores
+            Y_out=Y_out.unsqueeze(1)
+            torch.save(torch.tensor(yc[:-batch_size]).unsqueeze(1),f"{self.workdir}/Y.pt")          # Update scores from previous rounds
+        else :
+            #print(xc)
+            X_out=torch.tensor(xc,dtype=torch.float64)
+            Y_out=torch.tensor(yc)
+            Y_out=Y_out.unsqueeze(1)
         #print(Y_out.shape)
-        #print("Y_m_out")
-        #print(Y_m_out)
-        #print(Y_m_out.shape)
-
-        # If new best value is found, save it and some other data
-        if self.ymax is None or self.n == 0:
+      # If new best value is found, save it and some other data
+        if self.n == 0:
             self.ymax = max(links.values())
-            
+
             best_p = max(pset,key=pset.get)
             best_x = max(links,key=links.get)
             self.best = translate_parameters(param_key,best_x,ps_id=best_p)
-            
             np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
             np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
             self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv",index=False)
-            plot_all_comparisons(param_sets_to_plot=[1],plt_dir=self.workdir)
-            plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get),1],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+            
+            if(phase==0):
+                plot_all_comparisons(param_sets_to_plot=[1],plt_dir=self.workdir)
+                plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get),1],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO",dirs_exist_ok = True)            
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
             #clean_logs()
         else: 
-            if max(links.values())[0] > self.ymax:
-                self.ymax = max(links.values()) #weighted_lf  
+            if (max(links.values()) > self.ymax) or (self.n==1):
                 best_p = max(pset,key=pset.get)
+                
                 best_x = max(links,key=links.get)
                 self.best = translate_parameters(param_key,best_x,best_p)
                 self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv",index=False)
-
-                plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get)],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
-              
+                if(best_p>0):
+                    plot_all_comparisons(param_sets_to_plot=[max(pset,key=pset.get)],plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+            self.ymax = max(links.values()) #weighted_lf
             np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
             np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO",dirs_exist_ok = True)
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            #clean_logs()
         return X_out, Y_out
 
 
@@ -242,178 +427,76 @@ bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpoin
 
 param_center = [0.5] * n_params
 
-# Usual random init sample, with team default Xprior
-og3 =  [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
-        1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
-        0.235457679394,  # Antigen switch rate (7.65E-10)
-        #0.166666666667,  # Gametocyte sex ratio (0.2)
-        #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-        0.394437557888,  # Base gametocyte production rate (0.0615)
-        0.50171665944,   # Falciparum MSP variants (32)
-        0.0750750750751, # Falciparum nonspecific types (76)
-        0.704339142192,  # Falciparum PfEMP1 variants (1070)
-        0.28653200892,   # Fever IRBC kill rate (1.4)
-        #0.584444444444,  # Gametocyte stage survival rate (0.5886)
-        0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
-        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
-        0.825707,  # Pyrogenic threshold (15000)
-        #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
-        1.0,             # InnateImmuneDistributionFlag (Constant)
-        1.0,             # Innate Immune Distribution hyperparameter
-        1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
-        -1.0]            # Max individual infections (3)
-                       
-og20 = [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
-        1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
-        0.235457679394,  # Antigen switch rate (7.65E-10)
-        #0.166666666667,  # Gametocyte sex ratio (0.2)
-        #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-        0.394437557888,  # Base gametocyte production rate (0.0615)
-        0.50171665944,   # Falciparum MSP variants (32)
-        0.0750750750751, # Falciparum nonspecific types (76)
-        0.704339142192,  # Falciparum PfEMP1 variants (1070)
-        0.28653200892,   # Fever IRBC kill rate (1.4)
-        #0.584444444444,  # Gametocyte stage survival rate (0.5886)
-        0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-        0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
-        0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
-        0.825707,  # Pyrogenic threshold (15000)
-        #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
-        1.0,             # InnateImmuneDistributionFlag (Constant)
-        1.0,             # Innate Immune Distribution hyperparameter
-        1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
-        1.0]             # Max individual infections (20)
-                       
-best20 = [-1.0,                 # Antibody_Days_To_Long_Term_Decay (730)
-          1.0,                 # Antibody_Long_Term_Decay_Days (3.65E9)
-          0.14681129217943623, # Antigen switch rate ()
-          #0.34207990250727766, # Gametocyte sex ratio ()
-          #0.21048407105226913, # Base gametocyte mosquito survival rate () **
-          0.3693409807720977,  # Base gametocyte production rate ()
-          0.5604795715897458,  # Falciparum MSP variants ()
-          0.2626690152129773,  # Falciparum nonspecific types ()
-          0.7022772001589451,  # Falciparum PfEMP1 variants ()
-          0.060994132023345846,# Fever IRBC kill rate ()
-          #0.081170198,         # Gametocyte stage survival rate ()
-          0.041490393,         # MSP Merozoite Kill Fraction ()
-          0.3610358476836043,  # Nonspecific antibody growth rate factor ()
-          0.9988806702814735,  # Nonspecific Antigenicity Factor ()
-          0.668708,  # Pyrogenic threshold (5071)
-          #0.9232331462914466,  # Cytokine Gametocyte Inactivation ()
-          0.075623195,         # InnateImmuneDistributionFlag (Constant)
-          0.6597309204578824,  # Innate Immune Distribution hyperparameter
-          0.3364027554237745,  # Innate Immune Distribution hyperparameter placeholder (0.4)
-          1.0]                 # Max individual infections (20)
-          
-          
-og3LTD =  [0.38997214484679665,                 # Antibody_Days_To_Long_Term_Decay (730)
-           1.0,                 # Antibody_Long_Term_Decay_Days (3650)
-           0.235457679394,  # Antigen switch rate (7.65E-10)
-           #0.166666666667,  # Gametocyte sex ratio (0.2)
-           #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-           0.394437557888,  # Base gametocyte production rate (0.0615)
-           0.50171665944,   # Falciparum MSP variants (32)
-           0.0750750750751, # Falciparum nonspecific types (76)
-           0.704339142192,  # Falciparum PfEMP1 variants (1070)
-           0.28653200892,   # Fever IRBC kill rate (1.4)
-           #0.584444444444,  # Gametocyte stage survival rate (0.5886)
-           0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-           0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
-           0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
-           0.825707,  # Pyrogenic threshold (15000)
-           #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
-           1.0,             # InnateImmuneDistributionFlag (Constant)
-           1.0,             # Innate Immune Distribution hyperparameter
-           1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
-           -1.0]            # Max individual infections (3)
-                       
-og20LTD =[0.38997214484679665,   # Antibody_Days_To_Long_Term_Decay (730)
-          1.0,                      # Antibody_Long_Term_Decay_Days (3650)
-          0.235457679394,  # Antigen switch rate (7.65E-10)
-          #0.166666666667,  # Gametocyte sex ratio (0.2)
-          #0.236120668037,  # Base gametocyte mosquito survival rate (0.00088) **
-          0.394437557888,  # Base gametocyte production rate (0.0615)
-          0.50171665944,   # Falciparum MSP variants (32)
-          0.0750750750751, # Falciparum nonspecific types (76)
-          0.704339142192,  # Falciparum PfEMP1 variants (1070)
-          0.28653200892,   # Fever IRBC kill rate (1.4)
-          #0.584444444444,  # Gametocyte stage survival rate (0.5886)
-          0.506803355556,  # MSP Merozoite Kill Fraction (0.511735)
-          0.339794000867,  # Nonspecific antibody growth rate factor (0.5)
-          0.415099999415,  # Nonspecific Antigenicity Factor (0.4151)
-          0.825707,  # Pyrogenic threshold (15000)
-          #0.433677,        # Cytokine Gametocyte Inactivation (0.02)
-          1.0,             # InnateImmuneDistributionFlag (Constant)
-          1.0,             # Innate Immune Distribution hyperparameter
-          1.0,             # Innate Immune Distribution hyperparameter placeholder (0.4)
-          1.0]             # Max individual infections (20)
-                       
-best20LTD =[0.38997214484679665,                 # Antibody_Days_To_Long_Term_Decay (730)
-            1.0,                 # Antibody_Long_Term_Decay_Days (3650)
-            0.14681129217943623, # Antigen switch rate (7.65E-10)
-            #0.34207990250727766, # Gametocyte sex ratio (0.2)
-            #0.21048407105226913, # Base gametocyte mosquito survival rate (0.00088) **
-            0.3693409807720977,  # Base gametocyte production rate (0.0615)
-            0.5604795715897458,  # Falciparum MSP variants (32)
-            0.2626690152129773,  # Falciparum nonspecific types (76)
-            0.7022772001589451,  # Falciparum PfEMP1 variants (1070)
-            0.060994132023345846,# Fever IRBC kill rate (1.4)
-            #0.081170198,         # Gametocyte stage survival rate (0.5886)
-            0.041490393,         # MSP Merozoite Kill Fraction (0.511735)
-            0.3610358476836043,  # Nonspecific antibody growth rate factor (0.5)
-            0.9988806702814735,  # Nonspecific Antigenicity Factor (0.4151)
-            0.668708,          # Pyrogenic threshold (5071)
-            #0.9232331462914466,  # Cytokine Gametocyte Inactivation (0.02)
-            0.075623195,         # InnateImmuneDistributionFlag (Constant)
-            0.6597309204578824,  # Innate Immune Distribution hyperparameter
-            0.3364027554237745,  # Innate Immune Distribution hyperparameter placeholder (0.4)
-            1.0]                 # Max individual infections (20)
+### Current to parameter_key.csv as of March 7, 2025
+###################################################
 
-recent1 =  [0.162011559,
-            0.28704405,
-            0.404499314,
-            0.032100339,
-            0.76051205,
-            0.523973936,
-            0.895322169,
-            0.534285852,
-            0.615840137,
-            0.443207365,
-            0.457770734,
-            0.650599717,
-            0.994040708,
-            0.487476698,
-            0.761676972,
-            0.55873094]                 
+# # Usual random init sample, with team default Xprior
 
-recent2 =  [0.717175334,
-            0.046162481,
-            0.059301704,
-            0.583551667,
-            0.398200859,
-            0.449310958,
-            0.982295784,
-            0.661674454,
-            0.426075643,
-            0.054500493,
-            0.537145588,
-            0.79750433,
-            0.859899685,
-            0.547011133,
-            0.596003849,
-            0.545935206]
-            
+p0team_default = [#Max Individual Infections
+                 -1,
+                 #Antibody_Days_To_Long_Term_Decay of 365000.0
+                 -1,
+                 #Antibody_Long_Term_Decay_Days of 365.0
+                 0.0,
+                 #Antigen Switch Rate of 7.65e-10
+                 0.470915,
+                 #Falciparum MSP Variants of 32.0
+                 0.28421052631578947,
+                 #MSP Merozoite Kill Fraction of 0.511735322
+                 0.3724510733333335,
+                 #Falciparum Nonspecific Types of 76.0
+                 0.7473684210526316,
+                 #Nonspecific Antibody Growth Rate Factor of 0.5
+                 0.494949494949495,
+                 #Nonspecific Antigenicity Factor of 0.4151
+                 0.39387500000000003,
+                 #Falciparum PfEMP1 Variants of 1070.0
+                 0.285,
+                 #Antibody iRBC Kill Rate of 1.596
+                 0.02742857142857145,
+                 #Gametocyte Mosquito Stage Survival Rate of 0.002011099
+                 0.4902,
+                 #Cytokine Gametocyte Inactivation of 0.01667
+                 0.452741,
+                 #Max Fever Kill Rate of iRBCs of 1.4
+                 0.073064,
+                 #Pyrogenic Threshold of 15000.0
+                 0.825707,
+                 #InnateImmuneDistribution2 of 1.0
+                 1.0,
+                 #Maternal Antibody Protection of 0.1327
+                 0.13183183183183184,
+                 #Gametocyte Production Rate of 0.0615
+                 0.662799,
+                 #Gametocyte Fraction Male of 0.2
+                 0.3877551020408163,
+                 #Gametocyte Human Stage Survival Rate of 0.588569307
+                 0.1968206822222222,
+                 #Severe Anemia Threshold of 4.50775825
+                 0.8031033000000001,
+                 #Severe Anemia Inverse Width of 10.0
+                 0.2,
+                 #Severe Fever Threshold of 3.983542997
+                 0.24588574924999995,
+                 #Severe Fever Inverse Width of 27.56535804
+                 0.5513071608,
+                 #Severe Parasitemia Threshold of 851031.2877
+                 0.9999950570878854,
+                 #Severe Parasitemia Inverse Width of 56.5754896
+                 0.9429248266666667,
+                 #RBC Destruction Multiplier of 3.29
+                 0.316,
+                 #Erythropoiesis Anemia Effect of 3.5
+                 0.4
+                 ]
 
-
-
-xprior = [og3,og20,og3LTD,og20LTD,best20,best20LTD,recent1,recent2]
+xprior = [p0team_default]
 ## add samples at unit centroid to learn noise
 #xprior = x_prior + [param_center]*5
-
 bo.initRandom(init_size,
               n_batches = init_batches,
               Xpriors = xprior)
+
 
 # Run the optimization loop
 bo.run()
@@ -428,4 +511,6 @@ post_calibration_analysis(experiment=exp_label,
                           length_scales_plot=False,                     # Plot length-scales from calibration
                           prediction_plot=False,exclude_count=0,        # Plot predictions, starting @ exclude_count
                           timer_plot=False,                             # Plot emulator and acquisition timing
-                          n_prior=6)                                    # First n 'masked' priors used to seed calib without scores    
+                          n_prior=1)                                 # First n 'masked' priors used to seed calib without scores    
+
+

@@ -119,7 +119,7 @@ def compute_severe_incidence_likelihood_poisson(combined_df):
 
 
 def compute_severe_incidence_LL_by_site(site, numOf_param_sets):
-    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "inc_prev_data_final.csv"))
+    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "prev_inc_by_age_annual.csv"))
     combined_df = prepare_severe_incidence_comparison_single_site(sim_df, site)
 
     ll_by_param_set = combined_df.groupby("param_set") \
@@ -150,7 +150,7 @@ def compute_severe_incidence_LL_for_all_sites(numOf_param_sets):
 
 def plot_severe_incidence_comparison_single_site(site, param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
     # Plot comparison for a specific site, given specific param_set
-    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "inc_prev_data_final.csv"))
+    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath, site, "prev_inc_by_age_annual.csv"))
     combined_df = prepare_severe_incidence_comparison_single_site(sim_df, site)
     
     if param_sets_to_plot is None:

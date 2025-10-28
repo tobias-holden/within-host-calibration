@@ -6,7 +6,6 @@ from idmtools.analysis.analyze_manager import AnalyzeManager
 from idmtools.core import ItemType
 from idmtools.entities.ianalyzer import IAnalyzer as BaseAnalyzer
 
-
 class InfectiousnessByParDensAgeAnalyzer(BaseAnalyzer):
     def __init__(self, expt_name, sweep_variables=None, working_dir=".", start_year=0, end_year=65):
         super(InfectiousnessByParDensAgeAnalyzer, self).__init__(
@@ -70,19 +69,18 @@ class InfectiousnessByParDensAgeAnalyzer(BaseAnalyzer):
 
 if __name__ == '__main__':
     # Set the experiment id you want to analyze
-    experiment_id = 'b7126585-30b6-ec11-a9f6-9440c9be2c51'
-    end_year = 65
-
+    experiment_id = '9d55d844-34f2-4717-af6f-fa3dd3c94541'
+    wdir='/gpfs/projects/b1139/within-host-calibration/simulation_outputs'
+    end_year=65
     # Set the platform where you want to run your analysis
     # In this case we are running in BELEGOST since the Work Item we are analyzing was run on COMPS
     logger = getLogger()
-    with Platform('CALCULON') as platform:
-
+    with Platform('SLURM_LOCAL', job_directory='/gpfs/projects/b1139/within-host-calibration/experiments', partition='short',
+                  account='p32622', mem=0) as platform:
         # Initialize the analyser class with the path of the output csv file
-        analyzers = [InfectiousnessByParDensAgeAnalyzer(expt_name='Sugungum_1970',
-                                        sweep_variables=['Run_Number', 'Site'],
-                                        end_year=end_year)]
-
+        analyzers = [InfectiousnessByParDensAgeAnalyzer(expt_name='dapelogo_2007',
+                                        sweep_variables=['Run_Number', 'Site','param_set'],
+                                        end_year=end_year,working_dir=wdir)]
         # Specify the id Type, in this case an Experiment on COMPS
         manager = AnalyzeManager(partial_analyze_ok=True, ids=[(experiment_id, ItemType.EXPERIMENT)],
                                  analyzers=analyzers)

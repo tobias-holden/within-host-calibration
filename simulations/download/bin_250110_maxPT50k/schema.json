@@ -1,8 +1,8 @@
 {
     "Version": {
-        "DTK_Branch": "NU-malaria-PT(e350ecd23)",
-        "DTK_Build_Date": "Jun 14 2023",
-        "DTK_Version": "2.20.5386.0"
+        "DTK_Branch": "NU-malaria-PT(283da7c)",
+        "DTK_Build_Date": "Dec  9 2024",
+        "DTK_Version": "2.20.5398.0"
     },
     "config": {
         "Climate.ByData": {
@@ -1608,6 +1608,20 @@
                 "min": 0,
                 "type": "float"
             },
+            "Antibody_Days_To_Long_Term_Decay": {
+                "default": 3.40282e+38,
+                "description": "The number of days since the antibody (MSP & EMP1) was last active to start the long term decay of the concentration.",
+                "max": 3.40282e+38,
+                "min": 1,
+                "type": "float"
+            },
+            "Antibody_Long_Term_Decay_Days": {
+                "default": 3650,
+                "description": "The exponential decay time for an antibody (MSP & EMP1) concentration (in days) after the time since the antibody was last active exceeds Antibody_Days_To_Long_Term_Decay.",
+                "max": 3.40282e+38,
+                "min": 1,
+                "type": "float"
+            },
             "Antibody_Memory_Level": {
                 "default": 0.2,
                 "description": "The limiting level of antibody capacity that remains after a prolonged absence of a specific antigen. The antibody capacity decays to this level gradually after infection is cleared.",
@@ -1709,7 +1723,8 @@
                     "CYTOKINE_KILLING",
                     "PYROGENIC_THRESHOLD_VS_AGE",
                     "PYROGENIC_THRESHOLD_VS_AGE_INC",
-                    "PYROGENIC_THRESHOLD_VS_AGE_IIV"
+                    "PYROGENIC_THRESHOLD_VS_AGE_IIV",
+                    "PT_CK_DUAL"
                 ],
                 "type": "enum"
             },
@@ -1721,15 +1736,15 @@
                 "description": "Type of maternal antibody protection.",
                 "enum": [
                     "OFF",
-                    "CONSTANT_INITIAL_IMMUNITY",
-                    "SIMPLE_WANING"
+                    "SIMPLE_WANING",
+                    "CONSTANT_INITIAL_IMMUNITY"
                 ],
                 "type": "enum"
             },
             "Maternal_Antibody_Decay_Rate": {
                 "default": 0.01,
                 "depends-on": {
-                    "Maternal_Antibodies_Type": "CONSTANT_INITIAL_IMMUNITY,SIMPLE_WANING"
+                    "Maternal_Antibodies_Type": "SIMPLE_WANING,CONSTANT_INITIAL_IMMUNITY"
                 },
                 "description": "Decay rate per day in protection from maternal antibodies.",
                 "max": 3.40282e+38,
@@ -1739,7 +1754,7 @@
             "Maternal_Antibody_Protection": {
                 "default": 0.1,
                 "depends-on": {
-                    "Maternal_Antibodies_Type": "CONSTANT_INITIAL_IMMUNITY,SIMPLE_WANING"
+                    "Maternal_Antibodies_Type": "SIMPLE_WANING,CONSTANT_INITIAL_IMMUNITY"
                 },
                 "description": "Strength of protection from maternal antibodies as a multiple of full antibody killing effect.",
                 "max": 1,
@@ -14143,6 +14158,16 @@
                     "min": 0,
                     "type": "Vector Float"
                 },
+                "Detection_Threshold_True_Gametocyte_Density": {
+                    "default": 0,
+                    "depends-on": {
+                        "Use_True_Density_Vs_Threshold": 1
+                    },
+                    "description": "Used when 'Use_True_Density_Vs_Threshold' is true.  The true gametocyte density is compared against this threshold.  It impacts the 'Pf Gametocyte Prevalence by Age Bin' channel.",
+                    "max": 3.40282e+38,
+                    "min": 0,
+                    "type": "float"
+                },
                 "End_Day": {
                     "default": 3.40282e+38,
                     "description": "The day of the simulation to stop collecting data.",
@@ -14217,6 +14242,11 @@
                     "max": 3.40282e+38,
                     "min": 0,
                     "type": "float"
+                },
+                "Use_True_Density_Vs_Threshold": {
+                    "default": 0,
+                    "description": "If set to true, the true parasite/gametocyte density will be used instead of the microscopy measurement for the following channels: 'PfPR_2to10', 'PfPR by Age Bin', 'Pf Gametocyte Prevalence by Age Bin', and 'Mean Log Parasite Density by Age Bin'.  The true density will be compared to thresholds: config.Report_Detection_Threshold_True_Parasite_Density and MalariaSummaryReport.Detection_Threshold_True_Gametocyte_Density.  If false, then BLOOD_SMEAR_PARASITES/BLOOD_SMEAR_GAMETOCYTES measurements are used (have uncertainty in the measurement).  The parsite measurement is compared against a threshold of zero and the gametocyte measurement a threshold of 0.02.",
+                    "type": "bool"
                 },
                 "class": "MalariaSummaryReport"
             },
@@ -14376,6 +14406,38 @@
                     "type": "float"
                 },
                 "class": "MalariaSurveyJSONAnalyzer"
+            },
+            "ReportAntibodies": {
+                "Contain_Capacity_Data": {
+                    "default": 0,
+                    "description": "If true (1), the data for each antibody is the capacity of the antibody, otherwise the concentration.",
+                    "type": "bool"
+                },
+                "End_Day": {
+                    "default": 3.40282e+38,
+                    "description": "The day of the simulation to stop collecting data.",
+                    "max": 3.40282e+38,
+                    "min": 0,
+                    "type": "float"
+                },
+                "Reporting_Interval": {
+                    "default": 1,
+                    "description": "Defines the cadence of the report by specifying how many time steps to collect data before writing to the file.",
+                    "max": 1000000.0,
+                    "min": 1,
+                    "type": "float"
+                },
+                "Sim_Types": [
+                    "MALARIA_SIM"
+                ],
+                "Start_Day": {
+                    "default": 0,
+                    "description": "The day of the simulation to start collecting data.",
+                    "max": 3.40282e+38,
+                    "min": 0,
+                    "type": "float"
+                },
+                "class": "ReportAntibodies"
             },
             "ReportDrugStatus": {
                 "End_Day": {

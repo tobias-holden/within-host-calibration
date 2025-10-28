@@ -29,7 +29,7 @@ def compute_dead_likelihood(combined_df):
     combined_df['ll'] = np.nan
     for j in range(len(combined_df['No_Blood'])):
         if combined_df['No_Blood'][j] > 0:
-            combined_df['ll'][j] = -10
+            combined_df['ll'][j] = -1000
         elif combined_df['No_Blood'][j] == 0:
             combined_df['ll'][j] = 0
     return combined_df[["param_set","ll"]]

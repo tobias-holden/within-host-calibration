@@ -1,7 +1,7 @@
 import os, sys, shutil
 import json
 import warnings
-sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
+sys.path.append('/gpfs/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
 import pandas as pd
 import numpy as np
 from functools import partial
@@ -87,16 +87,16 @@ def set_param_fn(config):
     config.parameters.Report_Parasite_Smear_Sensitivity = 1  # 0.01
     # maternal antibody settings
     #config.parameters.Enable_Birth=0
-    # config.parameters.Maternal_Antibodies_Type = "CONSTANT_INITIAL_IMMUNITY"
-    # config.parameters.Maternal_Antibody_Decay_Rate = 0.01
-    # config.parameters.Maternal_Antibody_Protection = 0.1239666434
+    config.parameters.Maternal_Antibodies_Type = "CONSTANT_INITIAL_IMMUNITY"
+    config.parameters.Maternal_Antibody_Decay_Rate = 0.01
+    config.parameters.Maternal_Antibody_Protection = 0.1239666434
     # config.parameters.Clinical_Fever_Threshold_High = 0.1
     # config.parameters.Clinical_Fever_Threshold_Low = 0.1
     # config.parameters.pop("Serialized_Population_Filenames")
     
     # update outputs
     config.parameters.Enable_Default_Reporting = 0
-    #config.parameters[ "logLevel_default" ] = "WARNING"\
+    #config.parameters[ "logLevel_default" ] = "WARNING"
     #config.parameters[ "logLevel_default" ] = "WARNING"
     
     # add biting heterogeneity
@@ -211,12 +211,12 @@ def set_simulation_scenario(simulation, site, csv_path):
         simulation.task.config.parameters.Report_Event_Recorder_Events = ['parasites_on_survey_day']
         simulation.task.config.parameters.Custom_Individual_Events = ['parasites_on_survey_day']
     
-    add_malaria_survey_analyzer(simulation.task, manifest=manifest,
-                                start_day = simulation_duration-1,
-                                end_day = simulation_duration,
-                                event_trigger_list=["EveryUpdate"],
-                                reporting_interval = 1,
-                                max_number_reports = 1)
+    # add_malaria_survey_analyzer(simulation.task, manifest=manifest,
+    #                             start_day = simulation_duration-1,
+    #                             end_day = simulation_duration,
+    #                             event_trigger_list=["EveryUpdate"],
+    #                             reporting_interval = 1,
+    #                             max_number_reports = 1)
     
     return {"Site": site, 'csv_path': str(csv_path)}
 
@@ -260,7 +260,6 @@ def build_camp(site, coord_df):
         # Convert monthly EIR to daily EIR
         monthly_eirs = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'EIR_filepath'])
         monthly_eirs = monthly_eirs.loc[monthly_eirs.index[0:12], site].tolist()
-        #month_lengths = [31.00,28.00,31.00,30.00,31.00,30.00,31.00,31.00,30.00,31.00,30.00,31.00]
         daily_eirs = monthly_to_daily_EIR(monthly_eirs)
         add_scheduled_input_eir(camp, daily_eir=daily_eirs,
                                 start_day=1, age_dependence="SURFACE_AREA_DEPENDENT",

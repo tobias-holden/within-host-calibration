@@ -3,7 +3,7 @@ import argparse
 import os, sys, shutil
 import json
 import torch
-sys.path.append('/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
+sys.path.append('/gpfs/projects/b1139/environments/emod_torch_tobias/lib/python3.8/site-packages/')
 import pandas as pd
 import numpy as np
 from functools import \
@@ -30,7 +30,7 @@ import params as params
 import manifest as manifest
 
 
-def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.priority, my_manifest=manifest,
+def submit_sim(site=None, nSims=1, characteristic=False,priority=manifest.priority, my_manifest=manifest,
                not_use_singularity=False, X=None):
     """
     This function is designed to be a parameterized version of the sequence of things we do 
@@ -43,31 +43,31 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     platform2 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='short', time='4:00:00', 
                             account='p32622', modules=['singularity'], max_running_jobs=250, mem=2500,
                             sbatch_custom=f"--job-name=run_{site}")
-    platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='12:00:00', 
-                            account='p32622', modules=['singularity'], max_running_jobs=250, mem=2500)
-                            
+    platform1 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='normal', time='8:00:00', 
+                            account='p32622', modules=['singularity'], max_running_jobs=1000, mem=2500)
+                        
     b1139 = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='12:00:00', 
-                            account='b1139', modules=['singularity'], max_running_jobs=200, mem=2500)
+                            account='b1139', modules=['singularity'], max_running_jobs=250, mem=2500)
     b1139_test = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='12:00:00', 
                             account='b1139', modules=['singularity'], max_running_jobs=200, mem=2500)
-                            
+
+                        
                             
     #platform = Platform(my_manifest.platform_name, priority=priority, node_group=my_manifest.node_group)
     #print("Prompting for COMPS creds if necessary...")
 
-    experiment = create_exp(characteristic, nSims, site, my_manifest, not_use_singularity,platform1, X)
+    experiment = create_exp(characteristic, nSims, site, my_manifest, not_use_singularity,b1139, X)
 
     # The last step is to call run() on the ExperimentManager to run the simulations.
-    experiment.run(wait_until_done=False, platform=platform1)
+    experiment.run(wait_until_done=False, platform=b1139)
 
     # Additional step to schedule analyzer to run after simulation finished running
-    submit_scheduled_analyzer(experiment, b1139_test, site, analyzer_script='run_analyzers.py', mem=25000)
+    submit_scheduled_analyzer(experiment, b1139_test, site, analyzer_script='run_analyzers.py', mem=0)
 
     # Save experiment id to file
     comps_id_file = get_comps_id_filename(site=site)
     with open(comps_id_file, "w") as fd:
         fd.write(str(experiment.uid))
-    print()
     print(str(experiment.uid))
     return str(experiment.uid)
 
@@ -95,16 +95,16 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         shutil.copyfile(demog, f'my_demographics_vital_{sets}.json')
         distributions = list()
         IIV = X[X['type']=='demog'].reset_index(drop=True)
-        IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
-        IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
+        #IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
+        #IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
         IIV2= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].reset_index(drop=True)[0]
         #IIVF = IIV[IIV['parameter']=="InnateImmuneDistributionFlag"].reset_index(drop=True)
         #IIV1 = IIV[IIV['parameter']=="InnateImmuneDistribution1"].reset_index(drop=True)
         #IIV2 = IIV[IIV['parameter']=="InnateImmuneDistribution2"].reset_index(drop=True)
         # if(torch.is_tensor(IIVF)):
         #   IIVF = IIVF.numpy()
-        if torch.is_tensor(IIV1):
-          IIV1 = IIV1.numpy()
+        # if torch.is_tensor(IIV1):
+        #   IIV1 = IIV1.numpy()
         if torch.is_tensor(IIV2):
           IIV2 = IIV2.numpy()
         
@@ -113,8 +113,8 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         #print(IIV1)
         #print(IIV2)
         distributions.append(("InnateImmune",
-                              IIVF,
-                              float(IIV1),
+                              "BIMODAL_DISTRIBUTION",
+                              0.6,
                               float(IIV2)))
         #print(distributions)
         #print(type(distributions))
@@ -133,15 +133,15 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         shutil.copyfile(demog, f'my_demographics_cohort_{sets}.json')
         distributions = list()
         IIV = X[X['type']=='demog'].reset_index(drop=True)
-        IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
-        IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
+        #IIVF= IIV.loc[IIV['parameter'] == 'InnateImmuneDistributionFlag', 'emod_value'].reset_index(drop=True)[0]
+        #IIV1= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].reset_index(drop=True)[0]
         IIV2= IIV.loc[IIV['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].reset_index(drop=True)[0]
         #IIVF = IIV[IIV['parameter']=="InnateImmuneDistributionFlag"].reset_index(drop=True)
         #IIV1 = IIV[IIV['parameter']=="InnateImmuneDistribution1"].reset_index(drop=True)
         #IIV2 = IIV[IIV['parameter']=="InnateImmuneDistribution2"].reset_index(drop=True)
         
-        if torch.is_tensor(IIV1):
-          IIV1 = IIV1.numpy()
+        #if torch.is_tensor(IIV1):
+        #  IIV1 = IIV1.numpy()
         if torch.is_tensor(IIV2):
           IIV2 = IIV2.numpy()
         
@@ -150,8 +150,8 @@ def add_calib_param_func(simulation, calib_params,site,sets):
         #print(IIV1)
         #print(IIV2)
         distributions.append(("InnateImmune",
-                              IIVF,
-                              float(IIV1),
+                              "BIMODAL_DISTRIBUTION",
+                              0.6,
                               float(IIV2)))
         #print(distributions)
         #print(type(distributions))
@@ -174,7 +174,7 @@ def create_exp(characteristic, nSims, site, my_manifest, not_use_singularity, pl
         #task.set_sif(my_manifest.sif_id.as_posix())
     task.config.parameters["Maternal_Antibodies_Type"] = "CONSTANT_INITIAL_IMMUNITY"
     task.config.parameters.Maternal_Antibodies_Type = "CONSTANT_INITIAL_IMMUNITY"
-    task.config.parameters.Maternal_Antibody_Protection = 0.1239666434
+    # task.config.parameters.Maternal_Antibody_Protection = 0.1239666434
     task.config.parameters.Maternal_Antibody_Decay_Rate = 0.01
     builder, exp_name = _create_builder(task,characteristic, nSims, site, X)
     # create experiment from builder

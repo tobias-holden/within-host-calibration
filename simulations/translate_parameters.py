@@ -17,6 +17,7 @@ def translate_parameters(key, guesses, ps_id):
     result = "Done" 
     MII_flag = False
     LTD_flag = False
+    AIK_flag = False
     output = pd.DataFrame({"parameter": [], 
                            "param_set": [],
                            "team_default":[],
@@ -39,6 +40,7 @@ def translate_parameters(key, guesses, ps_id):
         # Scale to parameter range
         MII_flag=False
         LTD_flag=False
+        AIK_flag=False
         # Scale to parameter range
         value = row['min']+guesses[index]*(row['max']-row['min'])
         #print(f"{guesses[index]} --> {value}")
@@ -84,6 +86,10 @@ def translate_parameters(key, guesses, ps_id):
             if(guesses[index]==-1):
               LTD_flag=True
         
+        if(row['parameter_name']=="Antibody_IRBC_Kill_Rate"):
+            if(guesses[index]==-1):
+              AIK_flag=True
+        
         # Convert Data Types
         if(row['type'] == 'integer'):
             value = np.trunc(value)
@@ -102,6 +108,8 @@ def translate_parameters(key, guesses, ps_id):
         # Fix default LTD (never)
         if LTD_flag:
             value=np.trunc(365000)
+        if AIK_flag:
+            value=1.596
         
         new_row = pd.DataFrame({"parameter": [row['parameter_name']], 
                                 "param_set": [ps_id],
@@ -120,15 +128,19 @@ def translate_parameters(key, guesses, ps_id):
     
     output = output.reset_index(drop=True)
     
+    iflag="BIMODAL_DISTRIBUTION"
+    
     # Check IIVT Logic & do second translation on hyperparams
-    ifrow = output[output['parameter'] == 'InnateImmuneDistributionFlag'].reset_index()
+    #ifrow = output[output['parameter'] == 'InnateImmuneDistributionFlag'].reset_index()
     #print(ifrow)
-    iflag =ifrow['emod_value'][0]
+    #iflag =ifrow['emod_value'][0]
     #print(iflag)
     #print(iflag)
     
-    x1=output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].item()
+    #x1=output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'].item()
     x2=output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'].item()
+    
+    iflag=="BIMODAL_DISTRIBUTION"
 
     if iflag=='CONSTANT_DISTRIBUTION':
       #print("CONSTANT")
@@ -158,9 +170,9 @@ def translate_parameters(key, guesses, ps_id):
       # standard deviation
       output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
     elif iflag=='BIMODAL_DISTRIBUTION':
-      output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.6
-      # standard deviation
-      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x1
+      #output.loc[output['parameter'] == 'InnateImmuneDistribution1', 'emod_value'] = 0.6
+      # relative scale
+      output.loc[output['parameter'] == 'InnateImmuneDistribution2', 'emod_value'] = x2
       
      
     return(output)
@@ -197,12 +209,27 @@ def emod_to_unit(key,param,value):
     
     return(u)
 
+def best_emod_to_unit(key,param,value): 
+    loc = key[key['parameter']==param].reset_index()
+    #print(loc)
+    u = np.nan
+    if loc['transformation'][0]=='none':
+        u = (value-loc['min'][0])/(loc['max'][0]-loc['min'][0])
+        
+    if loc['transformation'][0]=='log':
+        u = (np.log10(value) - np.log10(loc['min'])) / (np.log10(loc['max'])-np.log10(loc['min']))
+    
+    return(u)
 
 if __name__ == '__main__':
 
 
-    param_key=pd.read_csv("full_parameter_key.csv")
-    
+    param_key=pd.read_csv("parameter_key.csv")
     for index, row in param_key.iterrows():
-        print(f'{row["parameter_label"]} of {row["team_default"]}')
+        print(f'{row["parameter_name"]} of {row["team_default"]}')
         print(emod_to_unit(param_key,row["parameter_name"],row["team_default"]))
+        
+    # param_key=pd.read_csv("output/250218_test_phase0/LF_12/emod.best.csv")
+    # for index, row in param_key.iterrows():
+    #     print(f'{row["parameter"]} of {row["emod_value"]}')
+    #     print(best_emod_to_unit(param_key,row["parameter"],row["emod_value"]))

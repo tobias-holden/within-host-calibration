@@ -115,7 +115,7 @@ if __name__ == '__main__':
     # Set the platform where you want to run your analysis
     # In this case we are running in BELEGOST since the Work Item we are analyzing was run on COMPS
     logger = getLogger()
-    with Platform('SLURM_LOCAL',job_directory='/projects/b1139/calibration_testing/experiments') as platform:
+    with Platform('SLURM_LOCAL',job_directory='/gpfs/projects/b1139/calibration_testing/experiments') as platform:
 
         # Initialize the analyser class with the path of the output csv file
         analyzers = [AnnualSummaryReportAnalyzer(expt_name='test')]

@@ -229,6 +229,33 @@ def compute_infectiousness_likelihood(combined_df):
 
     return log_likelihood #mean()#
 
+
+def compute_infectiousness_likelihood_debugging(combined_df):
+    """
+    Calculate an approximate likelihood for the simulation parameters for each site. This is estimated as the product,
+    across age groups, of the probability of observing the reference values if the simulation means represented the
+    true population mean.
+    """
+    # Extract necessary values from the DataFrame
+    alpha = (combined_df['ref_bin_count'].values + 1).astype(int)  # Dirichlet prior (alpha values)
+    n = (combined_df['counts'].values + 1).astype(int)  # Observed counts (n_k)
+    total_count = combined_df['total_count'].values  # Total trials (N_k)
+
+    # Reshape to handle multinomial-like computations
+    D = n.reshape(1, -1)  # Reshaped data
+    a = alpha
+    N, K = D.shape
+    
+    # Compute the log-probability for each category
+    logp = np.log(D)  # Log of counts (this could be problematic if any D values are 0)
+    
+    # Compute the log-likelihood based on Dirichlet-Multinomial formula
+    log_likelihood = N * (gammaln(a.sum()) - gammaln(a).sum() + ((a - 1) * logp).sum())
+
+    return log_likelihood  # Check for positive or negative log-likelihood values
+
+
+
 # The following function determines whether any parameters sets were missing for a site,
 # if there are missing parameter set, this prepares compute_LL_by_site to shoot out a warning message
 # This function additionally adds the missing parameter set to the dataframe with NaN for the ll.
@@ -389,7 +416,7 @@ def compute_infectiousness_LL_for_sim_site(comb_df,numOf_param_sets=100):
 
 if __name__=="__main__":
     pd.set_option('display.max_columns', None)
-    sim_df = pd.read_csv(os.path.join("/projects/b1139/within-host-calibration/simulations/output/250115/LF_0/SO/laye_2007/infectiousness_by_age_density_month.csv"))
+    sim_df = pd.read_csv(os.path.join("/gpfs/projects/b1139/within-host-calibration/simulations/output/250115/LF_0/SO/laye_2007/infectiousness_by_age_density_month.csv"))
     x=prepare_infectiousness_comparison_single_site(sim_df,'laye_2007')
     print(x)
     y=compute_infectiousness_LL_for_sim_site(x,100)

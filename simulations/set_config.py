@@ -11,7 +11,6 @@ def set_config( config, tmp_loc = [], rate= 1.0, infectivity = 1.0 ):
     config.parameters.Enable_Birth = 1
     # config.parameters.Enable_Coinfection = 1
     config.parameters.Enable_Demographics_Birth = 1
-    config.parameters.
     config.parameters.Enable_Demographics_Reporting = 0
     # config.parameters.Enable_Immune_Decay = 0
     config.parameters.Migration_Model = "NO_MIGRATION"

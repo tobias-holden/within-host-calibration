@@ -138,13 +138,13 @@ def shell_header_quest(A='b1139', p='b1139', t='02:00:00', N=1, ntasks_per_node=
         header = header + err + out
     return header
         
-def submit_scheduled_analyzer(experiment, platform, site, analyzer_script, mem=20000):
+def submit_scheduled_analyzer(experiment, platform, site, analyzer_script,mem=20000):
     wdir = os.path.abspath(os.path.dirname(__file__))
     ## Write bash file to submit
-    header_post = shell_header_quest(job_name=f'analyze_{site}', t='02:00:00', mem=mem, c='8')
+    header_post = shell_header_quest(job_name=f'analyze_{site}', t='8:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
+    pycommand = f'\n/gpfs/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    
@@ -197,7 +197,7 @@ def submit_scheduled_analyzer2(experiment, platform, analyzer_script, mem=20000)
     header_post = shell_header_quest(job_name=f'analyze_exp', t='02:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
+    pycommand = f'\n/gpfs/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}' 
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    
@@ -243,7 +243,7 @@ def schedule_calib_analysis(output_dir, platform, site, analyzer_script, mem=800
     header_post = shell_header_quest(job_name=f'analyze_calib', t='02:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
-    pycommand = f'\n/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}'
+    pycommand = f'\n/gpfs/projects/b1139/environments/emodpy-torch/bin/python {analyzer_script} --site {site} --expid {experiment.id}'
     
     if not os.path.exists('analyzers/batch'):
         os.makedirs(os.path.join('analyzers/batch'))    

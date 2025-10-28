@@ -62,7 +62,7 @@ node_group_private = 'idm_48cores'
 node_group = 'idm_abcd'
 
 # This is the path to the sisf image used to run EMOD
-SIF_PATH = "--bind /projects /projects/b1139/images/dtk_run_rocky_py39.sif"
+SIF_PATH = "--bind /gpfs/projects /gpfs/projects/b1139/images/dtk_run_rocky_py39.sif"
 
 job_directory = PROJECT_DIR / "experiments" 
 os.makedirs(job_directory, exist_ok=True)

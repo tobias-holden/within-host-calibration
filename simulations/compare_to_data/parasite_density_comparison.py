@@ -152,7 +152,7 @@ def prepare_parasite_density_comparison_single_site(sim_df, site):
     # format new simulation output
     # min_yr = np.min(sim_df['year'])
     # sim_df['year'] = sim_df['year']-min_yr+1
-    sim_df["site_month"] = sim_df['Site'] + '_month' + sim_df['month'].astype('str')
+    sim_df["site_month"] = sim_df['Site'] + '_month' + sim_df['month'].astype(int).astype('str')
     #sim_df["site_month"] = sim_df['Site'] + '_year' + sim_df['year'].astype('str') + '_month' + sim_df['month'].astype('str')
     sim_df_asex = sim_df[["param_set", "asexual_par_dens_freq", "mean_age", "agebin", "densitybin", "Site", "month","site_month"]] \
         .rename(columns={"asexual_par_dens_freq": "simulation"})
@@ -225,6 +225,9 @@ def compute_parasite_density_LL_by_site(site, numOf_param_sets):
     
     combined_df_asex, combined_df_gamet = prepare_parasite_density_comparison_single_site(sim_df, site)
     
+    print(f"Preparing comparison for {site}")
+    print(combined_df_asex)
+    
     asex_LL = combined_df_asex.groupby("param_set")\
         .apply(compute_density_likelihood)\
         .reset_index()\
@@ -293,7 +296,7 @@ def plot_density_comparison_single_site(site, param_sets_to_plot=None, plt_dir=o
             raise NotImplemented
 
         # Shift 0-density to small value to show plots on log scale
-        df["densitybin"][df["densitybin"]==0] = 5
+        df["densitybin"][df["densitybin"]==0] = 1
         ages = df["mean_age"].unique()
         #print(ages)
         months = df["month"].unique()
@@ -362,5 +365,5 @@ def plot_density_comparison_all_sites(param_sets_to_plot=None,plt_dir=os.path.jo
 
 if __name__ == "__main__":
     #plot_density_comparison_all_sites()
-    #print(compute_parasite_density_LL_for_all_sites(numOf_param_sets=5))
-    plot_density_comparison_all_sites(param_sets_to_plot = [1], plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"))
+    print(compute_parasite_density_LL_for_all_sites(numOf_param_sets=100))
+    #plot_density_comparison_all_sites(param_sets_to_plot = [1], plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"))

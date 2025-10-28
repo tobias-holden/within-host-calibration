@@ -251,9 +251,11 @@ def compute_prev_LL_by_site(site, numOf_param_sets):
     
     ll_by_param_set = combined_df.groupby("param_set",group_keys=False) \
         .apply(compute_prevalence_likelihood) \
-        .reset_index() \
-        .rename(columns={0: "ll"})
-    
+        .reset_index() 
+    #print(ll_by_param_set.to_string())
+    ll_by_param_set = ll_by_param_set.rename(columns={0: "ll"})
+    # print(ll_by_param_set)
+
     ll_by_param_set, missing_param_sets = identify_missing_parameter_sets(ll_by_param_set, numOf_param_sets)
   
     ll_by_param_set["site"] = site

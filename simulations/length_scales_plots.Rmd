@@ -17,6 +17,7 @@ library(patchwork)
 
 # experiment name
 exp <- "250118"
+#exp <- "241211_PT_CK_DUAL"
 
 dir.create(paste("output",exp,"performance",sep="/"))
 GP_folder<-paste("output",exp,"performance/GP",sep='/')
@@ -75,14 +76,19 @@ for(ls in ls_list){
   
   pids <- seq(1,max(sensitivities$id))
   
-  plevels <- c(16,13,15,14,
-               1,2,3,5,9,6,10,11,7,
-               12,8,4)
+  plevels <- c(15,17,16,
+               1,7,5,10,6,11,12,
+               8,13,
+               2,3,4,9,14)
 
 benchmark <- sensitivities %>% 
-  filter(id%in%c(16,13,15)) %>% 
+  filter(id%in%c(17,15)) %>% 
   group_by(site,metric) %>% summarize(benchmark=min(value))
   
+```
+
+
+```{r}
 sensitivities %>%
     left_join(benchmark) %>%
     mutate(site=gsub('.{5}$', '', site)) %>%
@@ -115,6 +121,42 @@ sensitivities %>%
   
   #
   
+  benchmark <- sensitivities %>% 
+  filter(id%in%c(17,15)) %>% 
+  group_by(site,metric) %>% summarize(benchmark=min(value)) %>%
+  ungroup() %>%
+  mutate(benchmark=min(benchmark))
+  
+sensitivities %>%
+    left_join(benchmark) %>%
+    mutate(site=gsub('.{5}$', '', site)) %>%
+    mutate(metric=gsub("gamet_density","gametocytes",metric)) %>%
+    mutate(metric=gsub("asex_density","asexual parasites",metric)) %>%
+    ggplot(aes(x=factor(id,levels=plevels,labels=abbreviate(gsub("Base ","",tp$parameter[plevels]))),
+               y=paste(substr(metric,1,4),substr(site,1,4),sep=". "))) +
+    geom_tile(aes(fill=value,
+                  alpha=value<=benchmark,
+                  color=value<=benchmark,
+                  linetype=ifelse(value>benchmark,">",ifelse(value==benchmark,"=","<"))),
+              linewidth=1) +
+    scale_fill_distiller(palette="RdGy",direction = 1) +
+    scale_alpha_manual(values=c(0.5,1))+
+    scale_color_manual(values=c("transparent","black"))+
+  scale_shape_manual(values=c("","X"))+
+  scale_linetype_manual(values=c(1,2,0))+
+    #facet_grid(metric~.,scales="free") +
+    xlab("") + ylab("") +
+    theme_minimal(base_size=12)+
+    theme(axis.text.x=element_text(angle=45,hjust=1)) +
+    xlab("") + ylab("") +
+    labs(fill=NULL,linetype="vs. benchmark",color=NULL,alpha=NULL) +
+  geom_point(aes(shape=value>=benchmark),size=4) +
+  guides(linetype=guide_legend(override.aes = list(fill="transparent",color="black")),
+         alpha="none",color="none") #+
+  coord_fixed()
+  
+  
+  #
   benchmark <- sensitivities %>% 
   filter(id%in%c(16,13,15)) %>% 
   mutate(benchmark=min(value)) %>% select(-c(id,value))
@@ -165,15 +207,16 @@ sensitivities %>%
     scale_fill_distiller(palette="RdGy",direction = 1) +
     #facet_grid(metric~.,scales="free") +
     xlab("") + ylab("") +
-    theme_minimal(base_size=16) +
+    theme_minimal(base_size=8) +
     theme(axis.text.x=element_text(angle=45,hjust=1)) +
     xlab("") + ylab("") +
     labs(fill=NULL) 
   
-  ggsave(paste(GP_folder,"ranked_lengthscales.png",sep="/"),width=12,height=8)
+  ggsave(paste(GP_folder,"ranked_lengthscales.pdf",sep="/"),width=6,height=4)
  
   
   sensitivities %>%
+    filter(metric!="infectiousness") %>%
     #group_by(site,metric) %>%
     mutate(percentile = percent_rank(value)) %>%
     ungroup() %>%
@@ -182,21 +225,23 @@ sensitivities %>%
     ungroup() %>%
     mutate(metric=gsub("gamet_density","[gametocytes]",metric)) %>%
     mutate(metric=gsub("asex_density","[asexual parasites]",metric)) %>% 
-    ggplot(aes(y=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
-               x=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
+    ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
+               y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence","severe_incidence")))) +
-    theme_minimal(base_size=16) +
+    theme_minimal(base_size=8) +
     geom_tile(color="white",
               aes(fill=value)) +
     #geom_text(aes(label=round(value,1)))+
     scale_fill_distiller(palette="RdGy",direction = 1) +
-    theme(axis.text.x=element_text(angle=45,hjust=1),
-          axis.text.y=element_text(angle=0)) +
+    theme(axis.text.x=element_text(angle=-60,hjust=0),
+          axis.text.y=element_text(angle=0),
+          legend.position="left") +
     xlab("") + ylab("") +
     labs(fill=NULL) +
+    scale_y_discrete(position="right")+
     coord_fixed()
   
-  ggsave(paste(GP_folder,"average_ranked_lengthscales.png",sep="/"),width=10,height=6)
+  ggsave(paste(GP_folder,"average_ranked_lengthscales.pdf",sep="/"),width=6,height=3)
     
   sensitivities %>%
     ungroup() %>%
@@ -216,7 +261,7 @@ sensitivities %>%
     ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
                y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence","severe_incidence")))) +
-    theme_minimal(base_size=16) +
+    theme_minimal(base_size=8) +
     geom_tile(aes(fill=value/threshold,
                   color=factor(value<=threshold),
                   linetype=ifelse(value>threshold,">",ifelse(value<threshold,"<","=")),
@@ -244,7 +289,7 @@ sensitivities %>%
     ggplot(aes(x=factor(id,levels=plevels,labels=gsub("\n","",gsub("-\n"," ",tp$parameter[plevels]))),
                y=factor(metric,levels=c("prevalence","[asexual parasites]","[gametocytes]",
                                         "infectiousness","incidence","severe_incidence")))) +
-    theme_minimal(base_size=16) +
+    theme_minimal(base_size=8) +
     geom_tile(aes(fill=value,
                   color=factor(value<=threshold),
                   linetype=ifelse(value>threshold,">",ifelse(value<threshold,"<","=")),
@@ -261,4 +306,84 @@ sensitivities %>%
            linetype=guide_legend(override.aes = list(fill="transparent",color="black")))
 ```
 
+
+
+```{r}
+plevels=c(16,13,15,14,
+          12,8,
+          3,1,2,
+          5,9,
+          6,10,11,
+          7,
+          4,17)
+
+sensitivities %>%
+  ggplot(aes(x=factor(id,levels=plevels,labels=tp$parameter[plevels]),y=value)) +
+  facet_grid(metric~.) +
+  geom_hline(yintercept=2,linetype=2) +
+  geom_line(aes(color=site,group=site))+
+  geom_point(data=.%>%filter(value<2),
+             aes(shape="<2")) +
+  scale_y_log10() +
+  labs(color=NULL,shape=NULL) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0)) +
+  xlab("") + ylab("GP Model Length-Scale") +
+  scale_color_brewer(palette="Dark2")
+
+sensitivities %>% 
+  #filter(site=="laye_2007" & metric=="infectiousness") %>%
+  mutate(parameter=factor(id,levels=plevels,labels=abbreviate(tp$parameter[plevels],5))) %>%
+  #filter(value<3.2) %>% 
+  ggplot(aes(x=parameter,y=interaction(site))) +
+  geom_point(aes(fill=log10(value)),
+             size=3,shape=21) +
+  facet_wrap(metric~.,scales="free_y",ncol=1) +
+  xlab("") + ylab("") +
+  scale_fill_distiller(palette="Spectral",direction=1) +
+  labs(color=NULL,fill=NULL) +
+  theme_minimal(base_size=12) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0))
+
+sensitivities %>%  
+  #filter(site=="laye_2007" & metric=="infectiousness") %>%
+  mutate(parameter=factor(id,levels=plevels,labels=abbreviate(tp$parameter[plevels],5))) %>%
+  mutate(parameter=factor(id,levels=plevels,labels=tp$parameter[plevels])) %>%
+  #filter(value<3.2) %>% 
+  ggplot(aes(y=parameter,x=interaction(site))) +
+  geom_tile(color="white",aes(fill=log10(value)))+#,alpha=value<=1))+
+  geom_tile(data=.%>%group_by(parameter,metric) %>% summarize(value=mean(value)) %>% mutate(site="all"),
+            aes(fill=log10(value)),color="black") +
+  facet_grid(.~metric,scales="free_x",space="free_x") +
+  xlab("") + ylab("") +
+  scale_fill_distiller(palette="Spectral",direction=1) +
+  labs(color=NULL,fill=NULL) +
+  theme_minimal(base_size=12) +
+  theme(axis.text.x=element_text(angle=-90,hjust=0))
+
+sensitivities %>%  
+  group_by(metric,id) %>%
+  summarize(value=mean(value)) %>%
+  #filter(site=="laye_2007" & metric=="infectiousness") %>%
+  mutate(parameter=factor(id,levels=plevels,labels=abbreviate(tp$parameter[plevels],5))) %>%
+  mutate(parameter=factor(id,levels=plevels,labels=tp$parameter[plevels])) %>%
+  #filter(value<3.2) %>% 
+  ggplot(aes(x=parameter,y=factor(metric,levels=c("prevalence","incidence","asex_density","gamet_density","infectiousness")))) +
+  geom_tile(color="white",aes(fill=log10(value)))+#,alpha=value<=1))+
+  xlab("") + ylab("") +
+  scale_fill_distiller(palette="Spectral",direction=1,breaks=c(-Inf,-1,0,1,Inf)) +
+  labs(color=NULL,fill=NULL) +
+  theme_minimal(base_size=12) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0))
+
+sensitivities %>%
+  ggplot(aes(x=factor(id,levels=plevels,labels=tp$parameter[plevels]),group=interaction(site,value),fill=log10(value))) +
+  geom_bar(stat="count",position = "fill",color="white") +
+  facet_grid(metric~.) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0)) +
+  xlab("") + ylab("%") +
+  labs(fill="Log(LS)") +
+  scale_fill_fermenter(palette="Spectral")
+
+
+```
 
